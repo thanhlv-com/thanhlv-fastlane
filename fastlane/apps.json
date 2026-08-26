@@ -14,5 +14,21 @@
     "flavor": "",
     "version": "1.0.0",
     "description": "OpsFlow Hub Multi-Platform Application (iOS, macOS, Android)"
+  },
+  "app-remove-app": {
+    "app_name": "OpsFlow Hub",
+    "git_url": "git@github.com:thanhlv-com/dev-tool.git",
+    "branch": "main",
+    "platforms": [
+      "ios",
+      "macos",
+      "aos"
+    ],
+    "bundle_id": "com.thanhlv.devtool",
+    "package_name": "com.thanhlv.devtool",
+    "apple_id": "6802606509",
+    "flavor": "",
+    "version": "1.0.0",
+    "description": "OpsFlow Hub Multi-Platform Application (iOS, macOS, Android)"
   }
 }
