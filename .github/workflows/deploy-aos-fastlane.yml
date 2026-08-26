@@ -58,6 +58,30 @@ on:
         default: ""
         type: string
 
+# ==============================================================================
+# KHAI BÁO TẬP TRUNG TẤT CẢ BIẾN MÔI TRƯỜNG & SECRETS TỪ GITHUB Ở ĐẦU FILE
+# ==============================================================================
+env:
+  # GitHub App & Repository Context
+  GH_APP_ID: "3766151"
+  GH_APP_PRIVATE_KEY: ${{ secrets.THANHLV_PRIVATE_KEY }}
+  GH_REPO_OWNER: ${{ github.repository_owner }}
+
+  # Google Play Console Secrets
+  CFG_SUPPLY_JSON_KEY: ${{ secrets.SUPPLY_JSON_KEY }}
+  CFG_SUPPLY_JSON_KEY_DATA: ${{ secrets.SUPPLY_JSON_KEY_DATA }}
+  CFG_GOOGLE_PLAY_KEY_FILE: ${{ secrets.GOOGLE_PLAY_KEY_FILE }}
+
+  # Workflow Inputs
+  INPUT_APP: ${{ inputs.app }}
+  INPUT_ACTION: ${{ inputs.action }}
+  INPUT_TRACK: ${{ inputs.track }}
+  INPUT_BUILD_TYPE: ${{ inputs.build_type }}
+  INPUT_VERSION: ${{ inputs.version }}
+  INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
+  INPUT_FLUTTER_CHANNEL: ${{ inputs.flutter_channel }}
+  INPUT_FLUTTER_VERSION: ${{ inputs.flutter_version }}
+
 jobs:
   deploy-android:
     name: Android (${{ inputs.app }} -> ${{ inputs.action == 'deploy' && inputs.track || inputs.build_type }})
@@ -73,9 +97,9 @@ jobs:
         id: app_token
         uses: actions/create-github-app-token@v1
         with:
-          app-id: 3766151
-          private-key: ${{ secrets.THANHLV_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
+          app-id: ${{ env.GH_APP_ID }}
+          private-key: ${{ env.GH_APP_PRIVATE_KEY }}
+          owner: ${{ env.GH_REPO_OWNER }}
 
       # 2. Cấu hình Git để tự động dùng App Token
       - name: Configure Git for Private Repositories
@@ -94,8 +118,8 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: ${{ inputs.flutter_channel }}
-          flutter-version: ${{ inputs.flutter_version != '' && inputs.flutter_version || '' }}
+          channel: ${{ env.INPUT_FLUTTER_CHANNEL }}
+          flutter-version: ${{ env.INPUT_FLUTTER_VERSION != '' && env.INPUT_FLUTTER_VERSION || '' }}
           cache: true
 
       # 5. Thiết lập Ruby & Cài đặt Fastlane qua Bundler (có cache)
@@ -105,33 +129,34 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: true
 
-      # 6. Thực thi Fastlane Android Deploy / Build
+      # 6. Thực thi Fastlane Android Deploy / Build (Đổi tên sang biến Fastlane nội bộ)
       - name: Run Fastlane Android
         env:
-          SUPPLY_JSON_KEY: ${{ secrets.SUPPLY_JSON_KEY }}
-          SUPPLY_JSON_KEY_DATA: ${{ secrets.SUPPLY_JSON_KEY_DATA }}
-          GOOGLE_PLAY_KEY_FILE: ${{ secrets.GOOGLE_PLAY_KEY_FILE }}
+          SUPPLY_JSON_KEY: ${{ env.CFG_SUPPLY_JSON_KEY }}
+          SUPPLY_JSON_KEY_DATA: ${{ env.CFG_SUPPLY_JSON_KEY_DATA }}
+          GOOGLE_PLAY_KEY_FILE: ${{ env.CFG_GOOGLE_PLAY_KEY_FILE }}
           CI: "true"
         run: |
-          # Xác định Version và Build Number
+          # Map các biến nội bộ trong bash
+          TARGET_APP="$INPUT_APP"
+          ACTION_TYPE="$INPUT_ACTION"
+          RELEASE_TRACK="$INPUT_TRACK"
+          OUTPUT_TYPE="$INPUT_BUILD_TYPE"
+
           EXTRA_ARGS=""
-          if [ -n "${{ inputs.version }}" ]; then
-            EXTRA_ARGS="$EXTRA_ARGS version:${{ inputs.version }}"
+          if [ -n "$INPUT_VERSION" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS version:$INPUT_VERSION"
           fi
 
-          if [ -n "${{ inputs.build_number }}" ]; then
-            EXTRA_ARGS="$EXTRA_ARGS build_number:${{ inputs.build_number }}"
+          if [ -n "$INPUT_BUILD_NUMBER" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS build_number:$INPUT_BUILD_NUMBER"
           else
             EPOCH_BUILD_NUMBER=$(date +%s)
             echo "🕒 Tự động tạo Build Number (Epoch): $EPOCH_BUILD_NUMBER"
             EXTRA_ARGS="$EXTRA_ARGS build_number:$EPOCH_BUILD_NUMBER"
           fi
 
-          ACTION="${{ inputs.action }}"
-          TRACK="${{ inputs.track }}"
-          BUILD_TYPE="${{ inputs.build_type }}"
-
-          if [ "${{ inputs.app }}" = "all" ]; then
+          if [ "$TARGET_APP" = "all" ]; then
             echo "🔍 Đang lọc danh sách app hỗ trợ nền tảng Android từ fastlane/apps.json..."
             AOS_APPS=$(jq -r 'to_entries[] | select(.value.platforms == null or (.value.platforms | map(ascii_downcase) | (index("aos") or index("android")))) | .key' fastlane/apps.json)
             
@@ -143,20 +168,20 @@ jobs:
             echo "🚀 Danh sách app Android sẽ chạy: $AOS_APPS"
             for app_key in $AOS_APPS; do
               echo "=================================================="
-              echo "🚀 Đang xử lý ($ACTION): $app_key"
+              echo "🚀 Đang xử lý ($ACTION_TYPE): $app_key"
               echo "=================================================="
-              if [ "$ACTION" = "deploy" ]; then
-                bundle exec fastlane aos deploy app:$app_key track:$TRACK $EXTRA_ARGS || exit 1
+              if [ "$ACTION_TYPE" = "deploy" ]; then
+                bundle exec fastlane aos deploy app:$app_key track:$RELEASE_TRACK $EXTRA_ARGS || exit 1
               else
-                bundle exec fastlane aos build app:$app_key type:$BUILD_TYPE $EXTRA_ARGS || exit 1
+                bundle exec fastlane aos build app:$app_key type:$OUTPUT_TYPE $EXTRA_ARGS || exit 1
               fi
             done
           else
-            echo "🚀 Đang xử lý ($ACTION): ${{ inputs.app }}"
-            if [ "$ACTION" = "deploy" ]; then
-              bundle exec fastlane aos deploy app:${{ inputs.app }} track:$TRACK $EXTRA_ARGS
+            echo "🚀 Đang xử lý ($ACTION_TYPE): $TARGET_APP"
+            if [ "$ACTION_TYPE" = "deploy" ]; then
+              bundle exec fastlane aos deploy app:$TARGET_APP track:$RELEASE_TRACK $EXTRA_ARGS
             else
-              bundle exec fastlane aos build app:${{ inputs.app }} type:$BUILD_TYPE $EXTRA_ARGS
+              bundle exec fastlane aos build app:$TARGET_APP type:$OUTPUT_TYPE $EXTRA_ARGS
             fi
           fi
 

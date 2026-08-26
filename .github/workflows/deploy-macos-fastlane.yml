@@ -48,6 +48,36 @@ on:
         default: ""
         type: string
 
+# ==============================================================================
+# KHAI BÁO TẬP TRUNG TẤT CẢ BIẾN MÔI TRƯỜNG & SECRETS TỪ GITHUB Ở ĐẦU FILE
+# ==============================================================================
+env:
+  # GitHub App & Repository Context
+  GH_APP_ID: "3766151"
+  GH_APP_PRIVATE_KEY: ${{ secrets.THANHLV_PRIVATE_KEY }}
+  GH_REPO_OWNER: ${{ github.repository_owner }}
+  KEYSTORE_REPO_NAME: "apple-certificates-keystore"
+
+  # Apple Developer & App Store Connect Secrets
+  CFG_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+  CFG_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+  CFG_ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+  CFG_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+  CFG_ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
+
+  # Fastlane Match Secrets
+  CFG_MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+  CFG_MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD || 'ci_secure_keychain_pass' }}
+
+  # Workflow Inputs
+  INPUT_APP: ${{ inputs.app }}
+  INPUT_ACTION: ${{ inputs.action }}
+  INPUT_TARGET: ${{ inputs.target }}
+  INPUT_VERSION: ${{ inputs.version }}
+  INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
+  INPUT_FLUTTER_CHANNEL: ${{ inputs.flutter_channel }}
+  INPUT_FLUTTER_VERSION: ${{ inputs.flutter_version }}
+
 jobs:
   deploy-macos:
     name: macOS (${{ inputs.app }} -> ${{ inputs.action == 'deploy' && inputs.target || 'build_only' }})
@@ -63,9 +93,9 @@ jobs:
         id: app_token
         uses: actions/create-github-app-token@v1
         with:
-          app-id: 3766151
-          private-key: ${{ secrets.THANHLV_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
+          app-id: ${{ env.GH_APP_ID }}
+          private-key: ${{ env.GH_APP_PRIVATE_KEY }}
+          owner: ${{ env.GH_REPO_OWNER }}
 
       # 2. Cấu hình Git để tự động dùng App Token cho tất cả repo thuộc GitHub
       - name: Configure Git for Private Repositories
@@ -73,12 +103,12 @@ jobs:
           git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "https://github.com/"
           git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "git@github.com:"
 
-      # 3. Thiết lập Flutter (không chạy pub get ở root vì fastlane sẽ pub get trong .workspace)
+      # 3. Thiết lập Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: ${{ inputs.flutter_channel }}
-          flutter-version: ${{ inputs.flutter_version != '' && inputs.flutter_version || '' }}
+          channel: ${{ env.INPUT_FLUTTER_CHANNEL }}
+          flutter-version: ${{ env.INPUT_FLUTTER_VERSION != '' && env.INPUT_FLUTTER_VERSION || '' }}
           cache: true
 
       # 4. Thiết lập Ruby & Cài đặt Fastlane qua Bundler (có cache)
@@ -88,37 +118,38 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: true
 
-      # 5. Thực thi Fastlane macOS Deploy / Build
+      # 5. Thực thi Fastlane macOS Deploy / Build (Đổi tên sang biến Fastlane nội bộ)
       - name: Run Fastlane macOS
         env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ github.repository_owner }}/apple-certificates-keystore.git"
-          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD || 'ci_secure_keychain_pass' }}
+          ASC_KEY_ID: ${{ env.CFG_ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ env.CFG_ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ env.CFG_ASC_KEY_CONTENT }}
+          APPLE_TEAM_ID: ${{ env.CFG_APPLE_TEAM_ID }}
+          ITC_TEAM_ID: ${{ env.CFG_ITC_TEAM_ID }}
+          MATCH_PASSWORD: ${{ env.CFG_MATCH_PASSWORD }}
+          MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ env.GH_REPO_OWNER }}/${{ env.KEYSTORE_REPO_NAME }}.git"
+          MATCH_KEYCHAIN_PASSWORD: ${{ env.CFG_MATCH_KEYCHAIN_PASSWORD }}
           CI: "true"
         run: |
-          # Xác định Version và Build Number
+          # Map các biến nội bộ trong bash
+          TARGET_APP="$INPUT_APP"
+          ACTION_TYPE="$INPUT_ACTION"
+          TARGET_ENV="$INPUT_TARGET"
+
           EXTRA_ARGS=""
-          if [ -n "${{ inputs.version }}" ]; then
-            EXTRA_ARGS="$EXTRA_ARGS version:${{ inputs.version }}"
+          if [ -n "$INPUT_VERSION" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS version:$INPUT_VERSION"
           fi
 
-          if [ -n "${{ inputs.build_number }}" ]; then
-            EXTRA_ARGS="$EXTRA_ARGS build_number:${{ inputs.build_number }}"
+          if [ -n "$INPUT_BUILD_NUMBER" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS build_number:$INPUT_BUILD_NUMBER"
           else
             EPOCH_BUILD_NUMBER=$(date +%s)
             echo "🕒 Tự động tạo Build Number (Epoch): $EPOCH_BUILD_NUMBER"
             EXTRA_ARGS="$EXTRA_ARGS build_number:$EPOCH_BUILD_NUMBER"
           fi
 
-          ACTION="${{ inputs.action }}"
-          TARGET="${{ inputs.target }}"
-
-          if [ "${{ inputs.app }}" = "all" ]; then
+          if [ "$TARGET_APP" = "all" ]; then
             echo "🔍 Đang lọc danh sách app hỗ trợ nền tảng macOS từ fastlane/apps.json..."
             MACOS_APPS=$(jq -r 'to_entries[] | select(.value.platforms == null or (.value.platforms | map(ascii_downcase) | (index("macos") or index("mac")))) | .key' fastlane/apps.json)
             
@@ -130,20 +161,20 @@ jobs:
             echo "🚀 Danh sách app macOS sẽ chạy: $MACOS_APPS"
             for app_key in $MACOS_APPS; do
               echo "=================================================="
-              echo "🚀 Đang xử lý ($ACTION): $app_key"
+              echo "🚀 Đang xử lý ($ACTION_TYPE): $app_key"
               echo "=================================================="
-              if [ "$ACTION" = "deploy" ]; then
-                bundle exec fastlane mac deploy app:$app_key target:$TARGET $EXTRA_ARGS || exit 1
+              if [ "$ACTION_TYPE" = "deploy" ]; then
+                bundle exec fastlane mac deploy app:$app_key target:$TARGET_ENV $EXTRA_ARGS || exit 1
               else
                 bundle exec fastlane mac build app:$app_key $EXTRA_ARGS || exit 1
               fi
             done
           else
-            echo "🚀 Đang xử lý ($ACTION): ${{ inputs.app }}"
-            if [ "$ACTION" = "deploy" ]; then
-              bundle exec fastlane mac deploy app:${{ inputs.app }} target:$TARGET $EXTRA_ARGS
+            echo "🚀 Đang xử lý ($ACTION_TYPE): $TARGET_APP"
+            if [ "$ACTION_TYPE" = "deploy" ]; then
+              bundle exec fastlane mac deploy app:$TARGET_APP target:$TARGET_ENV $EXTRA_ARGS
             else
-              bundle exec fastlane mac build app:${{ inputs.app }} $EXTRA_ARGS
+              bundle exec fastlane mac build app:$TARGET_APP $EXTRA_ARGS
             fi
           fi
 

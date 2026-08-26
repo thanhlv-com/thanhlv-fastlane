@@ -42,6 +42,35 @@ on:
         default: false
         type: boolean
 
+# ==============================================================================
+# KHAI BÁO TẬP TRUNG TẤT CẢ BIẾN MÔI TRƯỜNG & SECRETS TỪ GITHUB Ở ĐẦU FILE
+# ==============================================================================
+env:
+  # GitHub App & Repository Context
+  GH_APP_ID: "3766151"
+  GH_APP_PRIVATE_KEY: ${{ secrets.THANHLV_PRIVATE_KEY }}
+  GH_REPO_OWNER: ${{ github.repository_owner }}
+  KEYSTORE_REPO_NAME: "apple-certificates-keystore"
+
+  # Apple Developer & App Store Connect Secrets
+  CFG_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+  CFG_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+  CFG_ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+  CFG_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+  CFG_ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
+
+  # Fastlane Match Secrets
+  CFG_MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+  CFG_MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD || 'ci_secure_keychain_pass' }}
+
+  # Workflow Inputs
+  INPUT_PLATFORM: ${{ inputs.platform }}
+  INPUT_APP: ${{ inputs.app }}
+  INPUT_CERT_TYPE: ${{ inputs.type }}
+  INPUT_READONLY: ${{ inputs.readonly }}
+  INPUT_FORCE: ${{ inputs.force }}
+  INPUT_CLEAN_OLD_CERTS: ${{ inputs.clean_old_certs }}
+
 jobs:
   sync-certs:
     name: Sync Match Certs (${{ inputs.platform }} -> ${{ inputs.type }})
@@ -57,9 +86,9 @@ jobs:
         id: app_token
         uses: actions/create-github-app-token@v1
         with:
-          app-id: 3766151
-          private-key: ${{ secrets.THANHLV_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
+          app-id: ${{ env.GH_APP_ID }}
+          private-key: ${{ env.GH_APP_PRIVATE_KEY }}
+          owner: ${{ env.GH_REPO_OWNER }}
 
       # 2. Cấu hình Git để tự động dùng App Token
       - name: Configure Git for Private Repositories
@@ -74,34 +103,32 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: true
 
-      # 4. Thực thi Fastlane Sync Certs
+      # 4. Thực thi Fastlane Sync Certs (Đổi tên sang biến Fastlane nội bộ)
       - name: Run Fastlane Match Sync
         env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ github.repository_owner }}/apple-certificates-keystore.git"
-          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD || 'ci_secure_keychain_pass' }}
+          ASC_KEY_ID: ${{ env.CFG_ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ env.CFG_ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ env.CFG_ASC_KEY_CONTENT }}
+          APPLE_TEAM_ID: ${{ env.CFG_APPLE_TEAM_ID }}
+          ITC_TEAM_ID: ${{ env.CFG_ITC_TEAM_ID }}
+          MATCH_PASSWORD: ${{ env.CFG_MATCH_PASSWORD }}
+          MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ env.GH_REPO_OWNER }}/${{ env.KEYSTORE_REPO_NAME }}.git"
+          MATCH_KEYCHAIN_PASSWORD: ${{ env.CFG_MATCH_KEYCHAIN_PASSWORD }}
           CI: "true"
         run: |
-          ARGS="type:${{ inputs.type }} readonly:${{ inputs.readonly }} force:${{ inputs.force }} clean_old_certs:${{ inputs.clean_old_certs }}"
-          if [ -n "${{ inputs.app }}" ]; then
-            ARGS="$ARGS app:${{ inputs.app }}"
+          ARGS="type:$INPUT_CERT_TYPE readonly:$INPUT_READONLY force:$INPUT_FORCE clean_old_certs:$INPUT_CLEAN_OLD_CERTS"
+          if [ -n "$INPUT_APP" ]; then
+            ARGS="$ARGS app:$INPUT_APP"
           fi
 
-          PLATFORM="${{ inputs.platform }}"
-
-          if [ "$PLATFORM" = "ios" ] || [ "$PLATFORM" = "both" ]; then
+          if [ "$INPUT_PLATFORM" = "ios" ] || [ "$INPUT_PLATFORM" = "both" ]; then
             echo "=================================================="
             echo "🔑 [iOS] Đồng bộ Certificates & Profiles..."
             echo "=================================================="
             bundle exec fastlane ios sync_certs $ARGS
           fi
 
-          if [ "$PLATFORM" = "macos" ] || [ "$PLATFORM" = "both" ]; then
+          if [ "$INPUT_PLATFORM" = "macos" ] || [ "$INPUT_PLATFORM" = "both" ]; then
             echo "=================================================="
             echo "🔑 [macOS] Đồng bộ Certificates & Profiles..."
             echo "=================================================="
