@@ -16,19 +16,15 @@
     "description": "OpsFlow Hub Multi-Platform Application (iOS, macOS, Android)"
   },
   "app-remove-app": {
-    "app_name": "OpsFlow Hub",
-    "git_url": "git@github.com:thanhlv-com/dev-tool.git",
+    "app_name": "Remove App - Fast Uninstall",
+    "git_url": "git@github.com:thanhlv-com/app-remove-app.git",
     "branch": "main",
     "platforms": [
-      "ios",
-      "macos",
       "aos"
     ],
-    "bundle_id": "com.thanhlv.devtool",
-    "package_name": "com.thanhlv.devtool",
-    "apple_id": "6802606509",
-    "flavor": "",
+    "bundle_id": "com.thanhlv.remove_app",
+    "package_name": "com.thanhlv.remove_app",
     "version": "1.0.0",
-    "description": "OpsFlow Hub Multi-Platform Application (iOS, macOS, Android)"
+    "description": "Find apps fast and uninstall one app or multiple apps with clear progress."
   }
 }

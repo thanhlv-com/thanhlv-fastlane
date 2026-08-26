@@ -11,6 +11,7 @@ on:
         options:
           - "all"
           - "OpsFlow_Hub"
+          - "app-remove-app"
       action:
         description: "Hành động thực hiện"
         required: true
