@@ -4,10 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: "Chọn App Key trong apps.json (hoặc 'all' để chạy toàn bộ Android apps)"
+        description: "Chọn App Key trong apps.json (hoặc 'all' để áp dụng toàn bộ)"
         required: true
-        default: "OpsFlow_Hub"
-        type: string
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "OpsFlow_Hub"
       action:
         description: "Hành động thực hiện"
         required: true

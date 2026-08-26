@@ -13,10 +13,13 @@ on:
           - ios
           - macos
       app:
-        description: "Chọn App Key trong apps.json (để trống để đồng bộ toàn bộ)"
+        description: "Chọn App Key trong apps.json (hoặc 'all' để áp dụng toàn bộ)"
         required: false
-        default: ""
-        type: string
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "OpsFlow_Hub"
       type:
         description: "Loại Certificate / Profile"
         required: true
@@ -117,7 +120,7 @@ jobs:
           CI: "true"
         run: |
           ARGS="type:$INPUT_CERT_TYPE readonly:$INPUT_READONLY force:$INPUT_FORCE clean_old_certs:$INPUT_CLEAN_OLD_CERTS"
-          if [ -n "$INPUT_APP" ]; then
+          if [ -n "$INPUT_APP" ] && [ "$INPUT_APP" != "all" ]; then
             ARGS="$ARGS app:$INPUT_APP"
           fi
 
