@@ -69,6 +69,7 @@ def deploy_aos_app(options)
 
   # 2. Upload lên Google Play Store qua Fastlane Supply
   json_key = ENV["SUPPLY_JSON_KEY"] || ENV["GOOGLE_PLAY_KEY_FILE"] || options[:json_key]
+  json_key_data = ENV["SUPPLY_JSON_KEY_DATA"] || options[:json_key_data]
 
   UI.message("🚀 Đang upload AAB lên Google Play Console (Track: #{track}, Package: #{package_name})...")
   
@@ -80,6 +81,7 @@ def deploy_aos_app(options)
     skip_upload_screenshots: true
   }
   supply_args[:json_key] = json_key if json_key && !json_key.empty?
+  supply_args[:json_key_data] = json_key_data if json_key_data && !json_key_data.empty?
 
   upload_to_play_store(supply_args)
   UI.success("🎉 Phát hành thành công #{app_info['app_name']} (#{package_name}) lên Google Play Store track #{track}!")

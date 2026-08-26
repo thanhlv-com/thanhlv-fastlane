@@ -1,0 +1,109 @@
+name: Sync Apple Certificates & Profiles (Fastlane Match)
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Nền tảng cần đồng bộ"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - ios
+          - macos
+      app:
+        description: "Chọn App Key trong apps.json (để trống để đồng bộ toàn bộ)"
+        required: false
+        default: ""
+        type: string
+      type:
+        description: "Loại Certificate / Profile"
+        required: true
+        default: "appstore"
+        type: choice
+        options:
+          - appstore
+          - development
+          - adhoc
+      readonly:
+        description: "Chế độ Read-only (Bỏ chọn nếu cần tạo mới/gia hạn certs trên Apple Portal)"
+        required: true
+        default: true
+        type: boolean
+      force:
+        description: "Bắt buộc tạo mới certs/profiles (force renewal)"
+        required: true
+        default: false
+        type: boolean
+      clean_old_certs:
+        description: "Dọn dẹp certs/profiles cũ trên máy CI trước khi sync"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  sync-certs:
+    name: Sync Match Certs (${{ inputs.platform }} -> ${{ inputs.type }})
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 1. Tạo GitHub App Token để truy cập private keystore repo
+      - name: Generate GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: 3766151
+          private-key: ${{ secrets.THANHLV_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      # 2. Cấu hình Git để tự động dùng App Token
+      - name: Configure Git for Private Repositories
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "git@github.com:"
+
+      # 3. Thiết lập Ruby & Fastlane
+      - name: Setup Ruby & Bundler
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      # 4. Thực thi Fastlane Sync Certs
+      - name: Run Fastlane Match Sync
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ github.repository_owner }}/apple-certificates-keystore.git"
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD || 'ci_secure_keychain_pass' }}
+          CI: "true"
+        run: |
+          ARGS="type:${{ inputs.type }} readonly:${{ inputs.readonly }} force:${{ inputs.force }} clean_old_certs:${{ inputs.clean_old_certs }}"
+          if [ -n "${{ inputs.app }}" ]; then
+            ARGS="$ARGS app:${{ inputs.app }}"
+          fi
+
+          PLATFORM="${{ inputs.platform }}"
+
+          if [ "$PLATFORM" = "ios" ] || [ "$PLATFORM" = "both" ]; then
+            echo "=================================================="
+            echo "🔑 [iOS] Đồng bộ Certificates & Profiles..."
+            echo "=================================================="
+            bundle exec fastlane ios sync_certs $ARGS
+          fi
+
+          if [ "$PLATFORM" = "macos" ] || [ "$PLATFORM" = "both" ]; then
+            echo "=================================================="
+            echo "🔑 [macOS] Đồng bộ Certificates & Profiles..."
+            echo "=================================================="
+            bundle exec fastlane mac sync_certs $ARGS
+          fi

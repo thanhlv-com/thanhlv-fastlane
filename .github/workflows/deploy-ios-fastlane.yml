@@ -4,18 +4,36 @@ on:
   workflow_dispatch:
     inputs:
       app:
-        description: "Chọn App Key trong apps.json (hoặc nhập 'all' để deploy toàn bộ)"
+        description: "Chọn App Key trong apps.json (hoặc 'all' để chạy toàn bộ iOS apps)"
         required: true
         default: "OpsFlow_Hub"
         type: string
+      action:
+        description: "Hành động thực hiện"
+        required: true
+        default: "deploy"
+        type: choice
+        options:
+          - deploy
+          - build_only
       target:
-        description: "Mục tiêu phát hành"
+        description: "Mục tiêu phát hành (khi chọn action = deploy)"
         required: true
         default: "testflight"
         type: choice
         options:
           - testflight
           - appstore
+      version:
+        description: "Version (Tùy chọn, để trống sẽ lấy từ apps.json/pubspec.yaml)"
+        required: false
+        default: ""
+        type: string
+      build_number:
+        description: "Build Number (Tùy chọn, để trống sẽ tự sinh Epoch timestamp)"
+        required: false
+        default: ""
+        type: string
       flutter_channel:
         description: "Flutter Channel"
         required: false
@@ -24,85 +42,119 @@ on:
         options:
           - stable
           - beta
-      version:
-        description: "Version (Tùy chọn, để trống sẽ lấy version cấu hình trong apps.json)"
+      flutter_version:
+        description: "Flutter Version cụ thể (Tùy chọn, ví dụ: 3.29.0)"
         required: false
         default: ""
         type: string
 
 jobs:
   deploy-ios:
-    name: Deploy iOS (${{ inputs.app }} -> ${{ inputs.target }})
+    name: iOS (${{ inputs.app }} -> ${{ inputs.action == 'deploy' && inputs.target || 'build_only' }})
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 1. Tạo GitHub App Token để truy cập private keystore repo (apple-certificates-keystore)
-      - name: Generate GitHub App Token for Keystore
+      # 1. Tạo GitHub App Token để truy cập private keystore và các repo source code
+      - name: Generate GitHub App Token
         id: app_token
         uses: actions/create-github-app-token@v1
         with:
           app-id: 3766151
           private-key: ${{ secrets.THANHLV_PRIVATE_KEY }}
-          owner: thanhlv-com
-          repositories: "apple-certificates-keystore"
+          owner: ${{ github.repository_owner }}
 
-      # 2. Thiết lập Flutter
+      # 2. Cấu hình Git để tự động dùng App Token cho tất cả repo thuộc GitHub
+      - name: Configure Git for Private Repositories
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "git@github.com:"
+
+      # 3. Thiết lập Flutter (không chạy pub get ở root vì fastlane sẽ pub get trong .workspace)
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: ${{ inputs.flutter_channel }}
+          flutter-version: ${{ inputs.flutter_version != '' && inputs.flutter_version || '' }}
           cache: true
 
-      - name: Flutter Dependencies
-        run: flutter pub get
-
-      # 3. Thiết lập Ruby & Fastlane
-      - name: Setup Ruby
+      # 4. Thiết lập Ruby & Cài đặt Fastlane qua Bundler (có cache)
+      - name: Setup Ruby & Bundler
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.2"
+          ruby-version: "3.3"
+          bundler-cache: true
 
-      - name: Install Fastlane & CocoaPods
-        run: |
-          gem install bundler
-          gem install fastlane --no-document
-          pod --version
-
-      # 4. Thực thi Fastlane Deploy
-      - name: Run Fastlane Deploy
+      # 5. Thực thi Fastlane iOS Deploy / Build
+      - name: Run Fastlane iOS
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ github.repository_owner }}/apple-certificates-keystore.git"
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD || 'ci_secure_keychain_pass' }}
           CI: "true"
         run: |
-          VERSION_ARG=""
+          # Xác định Version và Build Number
+          EXTRA_ARGS=""
           if [ -n "${{ inputs.version }}" ]; then
-            VERSION_ARG="version:${{ inputs.version }}"
+            EXTRA_ARGS="$EXTRA_ARGS version:${{ inputs.version }}"
           fi
 
-          EPOCH_BUILD_NUMBER=$(date +%s)
-          echo "🕒 Timestamp build_number (epoch từ 1970): $EPOCH_BUILD_NUMBER"
+          if [ -n "${{ inputs.build_number }}" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS build_number:${{ inputs.build_number }}"
+          else
+            EPOCH_BUILD_NUMBER=$(date +%s)
+            echo "🕒 Tự động tạo Build Number (Epoch): $EPOCH_BUILD_NUMBER"
+            EXTRA_ARGS="$EXTRA_ARGS build_number:$EPOCH_BUILD_NUMBER"
+          fi
+
+          ACTION="${{ inputs.action }}"
+          TARGET="${{ inputs.target }}"
 
           if [ "${{ inputs.app }}" = "all" ]; then
-            echo "🚀 Bắt đầu batch deploy toàn bộ các apps trong apps.json..."
-            for app_key in $(jq -r 'keys[]' fastlane/apps.json); do
+            echo "🔍 Đang lọc danh sách app hỗ trợ nền tảng iOS từ fastlane/apps.json..."
+            IOS_APPS=$(jq -r 'to_entries[] | select(.value.platforms == null or (.value.platforms | map(ascii_downcase) | index("ios"))) | .key' fastlane/apps.json)
+            
+            if [ -z "$IOS_APPS" ]; then
+              echo "⚠️ Không tìm thấy app nào hỗ trợ nền tảng iOS trong apps.json!"
+              exit 1
+            fi
+
+            echo "🚀 Danh sách app iOS sẽ chạy: $IOS_APPS"
+            for app_key in $IOS_APPS; do
               echo "=================================================="
-              echo "🚀 Deploying app: $app_key"
+              echo "🚀 Đang xử lý ($ACTION): $app_key"
               echo "=================================================="
-              fastlane ios deploy app:$app_key target:${{ inputs.target }} build_number:$EPOCH_BUILD_NUMBER $VERSION_ARG || exit 1
+              if [ "$ACTION" = "deploy" ]; then
+                bundle exec fastlane ios deploy app:$app_key target:$TARGET $EXTRA_ARGS || exit 1
+              else
+                bundle exec fastlane ios build app:$app_key $EXTRA_ARGS || exit 1
+              fi
             done
           else
-            echo "🚀 Deploying app: ${{ inputs.app }}"
-            fastlane ios deploy app:${{ inputs.app }} target:${{ inputs.target }} build_number:$EPOCH_BUILD_NUMBER $VERSION_ARG
+            echo "🚀 Đang xử lý ($ACTION): ${{ inputs.app }}"
+            if [ "$ACTION" = "deploy" ]; then
+              bundle exec fastlane ios deploy app:${{ inputs.app }} target:$TARGET $EXTRA_ARGS
+            else
+              bundle exec fastlane ios build app:${{ inputs.app }} $EXTRA_ARGS
+            fi
           fi
 
-
+      # 6. Upload IPA & dSYM Artifacts để tải trực tiếp trên GitHub Actions
+      - name: Upload iOS Build Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-builds
+          path: |
+            .workspace/*/build/ios/ipa/*.ipa
+            .workspace/*/build/ios/ipa/*.dSYM.zip
+          if-no-files-found: ignore
+          retention-days: 14

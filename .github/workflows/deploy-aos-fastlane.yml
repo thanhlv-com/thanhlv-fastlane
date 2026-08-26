@@ -1,10 +1,10 @@
-name: Deploy macOS Apps (TestFlight & Mac App Store)
+name: Deploy Android Apps (Google Play Console)
 
 on:
   workflow_dispatch:
     inputs:
       app:
-        description: "Chọn App Key trong apps.json (hoặc 'all' để chạy toàn bộ macOS apps)"
+        description: "Chọn App Key trong apps.json (hoặc 'all' để chạy toàn bộ Android apps)"
         required: true
         default: "OpsFlow_Hub"
         type: string
@@ -16,14 +16,24 @@ on:
         options:
           - deploy
           - build_only
-      target:
-        description: "Mục tiêu phát hành (khi chọn action = deploy)"
+      track:
+        description: "Track Google Play Console (khi chọn action = deploy)"
         required: true
-        default: "testflight"
+        default: "internal"
         type: choice
         options:
-          - testflight
-          - appstore
+          - internal
+          - alpha
+          - beta
+          - production
+      build_type:
+        description: "Loại định dạng build (khi chọn action = build_only)"
+        required: true
+        default: "appbundle"
+        type: choice
+        options:
+          - appbundle
+          - apk
       version:
         description: "Version (Tùy chọn, để trống sẽ lấy từ apps.json/pubspec.yaml)"
         required: false
@@ -49,16 +59,16 @@ on:
         type: string
 
 jobs:
-  deploy-macos:
-    name: macOS (${{ inputs.app }} -> ${{ inputs.action == 'deploy' && inputs.target || 'build_only' }})
-    runs-on: macos-latest
-    timeout-minutes: 90
+  deploy-android:
+    name: Android (${{ inputs.app }} -> ${{ inputs.action == 'deploy' && inputs.track || inputs.build_type }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 1. Tạo GitHub App Token để truy cập private keystore và các repo source code
+      # 1. Tạo GitHub App Token để truy cập private repo source code
       - name: Generate GitHub App Token
         id: app_token
         uses: actions/create-github-app-token@v1
@@ -67,13 +77,20 @@ jobs:
           private-key: ${{ secrets.THANHLV_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-      # 2. Cấu hình Git để tự động dùng App Token cho tất cả repo thuộc GitHub
+      # 2. Cấu hình Git để tự động dùng App Token
       - name: Configure Git for Private Repositories
         run: |
           git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "https://github.com/"
           git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "git@github.com:"
 
-      # 3. Thiết lập Flutter (không chạy pub get ở root vì fastlane sẽ pub get trong .workspace)
+      # 3. Thiết lập Java JDK (yêu cầu cho Android Gradle build)
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      # 4. Thiết lập Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -81,24 +98,19 @@ jobs:
           flutter-version: ${{ inputs.flutter_version != '' && inputs.flutter_version || '' }}
           cache: true
 
-      # 4. Thiết lập Ruby & Cài đặt Fastlane qua Bundler (có cache)
+      # 5. Thiết lập Ruby & Cài đặt Fastlane qua Bundler (có cache)
       - name: Setup Ruby & Bundler
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
           bundler-cache: true
 
-      # 5. Thực thi Fastlane macOS Deploy / Build
-      - name: Run Fastlane macOS
+      # 6. Thực thi Fastlane Android Deploy / Build
+      - name: Run Fastlane Android
         env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ github.repository_owner }}/apple-certificates-keystore.git"
-          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD || 'ci_secure_keychain_pass' }}
+          SUPPLY_JSON_KEY: ${{ secrets.SUPPLY_JSON_KEY }}
+          SUPPLY_JSON_KEY_DATA: ${{ secrets.SUPPLY_JSON_KEY_DATA }}
+          GOOGLE_PLAY_KEY_FILE: ${{ secrets.GOOGLE_PLAY_KEY_FILE }}
           CI: "true"
         run: |
           # Xác định Version và Build Number
@@ -116,45 +128,46 @@ jobs:
           fi
 
           ACTION="${{ inputs.action }}"
-          TARGET="${{ inputs.target }}"
+          TRACK="${{ inputs.track }}"
+          BUILD_TYPE="${{ inputs.build_type }}"
 
           if [ "${{ inputs.app }}" = "all" ]; then
-            echo "🔍 Đang lọc danh sách app hỗ trợ nền tảng macOS từ fastlane/apps.json..."
-            MACOS_APPS=$(jq -r 'to_entries[] | select(.value.platforms == null or (.value.platforms | map(ascii_downcase) | (index("macos") or index("mac")))) | .key' fastlane/apps.json)
+            echo "🔍 Đang lọc danh sách app hỗ trợ nền tảng Android từ fastlane/apps.json..."
+            AOS_APPS=$(jq -r 'to_entries[] | select(.value.platforms == null or (.value.platforms | map(ascii_downcase) | (index("aos") or index("android")))) | .key' fastlane/apps.json)
             
-            if [ -z "$MACOS_APPS" ]; then
-              echo "⚠️ Không tìm thấy app nào hỗ trợ nền tảng macOS trong apps.json!"
+            if [ -z "$AOS_APPS" ]; then
+              echo "⚠️ Không tìm thấy app nào hỗ trợ nền tảng Android trong apps.json!"
               exit 1
             fi
 
-            echo "🚀 Danh sách app macOS sẽ chạy: $MACOS_APPS"
-            for app_key in $MACOS_APPS; do
+            echo "🚀 Danh sách app Android sẽ chạy: $AOS_APPS"
+            for app_key in $AOS_APPS; do
               echo "=================================================="
               echo "🚀 Đang xử lý ($ACTION): $app_key"
               echo "=================================================="
               if [ "$ACTION" = "deploy" ]; then
-                bundle exec fastlane mac deploy app:$app_key target:$TARGET $EXTRA_ARGS || exit 1
+                bundle exec fastlane aos deploy app:$app_key track:$TRACK $EXTRA_ARGS || exit 1
               else
-                bundle exec fastlane mac build app:$app_key $EXTRA_ARGS || exit 1
+                bundle exec fastlane aos build app:$app_key type:$BUILD_TYPE $EXTRA_ARGS || exit 1
               fi
             done
           else
             echo "🚀 Đang xử lý ($ACTION): ${{ inputs.app }}"
             if [ "$ACTION" = "deploy" ]; then
-              bundle exec fastlane mac deploy app:${{ inputs.app }} target:$TARGET $EXTRA_ARGS
+              bundle exec fastlane aos deploy app:${{ inputs.app }} track:$TRACK $EXTRA_ARGS
             else
-              bundle exec fastlane mac build app:${{ inputs.app }} $EXTRA_ARGS
+              bundle exec fastlane aos build app:${{ inputs.app }} type:$BUILD_TYPE $EXTRA_ARGS
             fi
           fi
 
-      # 6. Upload PKG & dSYM Artifacts để tải trực tiếp trên GitHub Actions
-      - name: Upload macOS Build Artifacts
+      # 7. Upload AAB & APK Artifacts để tải trực tiếp trên GitHub Actions
+      - name: Upload Android Build Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: macos-pkg-builds
+          name: android-build-artifacts
           path: |
-            .workspace/*/build/macos/pkg/*.pkg
-            .workspace/*/build/macos/pkg/*.dSYM.zip
+            .workspace/*/build/app/outputs/bundle/**/*.aab
+            .workspace/*/build/app/outputs/flutter-apk/**/*.apk
           if-no-files-found: ignore
           retention-days: 14
