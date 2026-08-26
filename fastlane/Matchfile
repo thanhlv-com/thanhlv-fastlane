@@ -1,0 +1,14 @@
+# Fastlane Match Configuration (iOS & macOS)
+# Documentation: https://docs.fastlane.tools/actions/match/
+
+# URL của Private Git Repository dùng để lưu trữ chứng chỉ & profile mã hóa
+git_url(ENV["MATCH_GIT_URL"] || "git@github.com:thanhlv-com/apple-certificates-keystore.git")
+
+# Loại lưu trữ: git (khuyến nghị cho multi-app)
+storage_mode("git")
+
+# Chi nhánh Git lưu chứng chỉ (mặc định là master / main)
+git_branch("master")
+
+# Cho phép clone shallow để tăng tốc độ CI
+shallow_clone(true)

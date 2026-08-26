@@ -1,0 +1,8 @@
+# Fastlane Appfile Configuration (iOS & macOS)
+# Documentation: https://docs.fastlane.tools/advanced/#appfile
+
+# Team ID trên Apple Developer Portal (10 ký tự, ví dụ: 4V5N97XXXX)
+team_id(ENV["APPLE_TEAM_ID"] || "")
+
+# ITC Team ID (App Store Connect Team ID nếu có nhiều Team)
+itc_team_id(ENV["ITC_TEAM_ID"] || "")

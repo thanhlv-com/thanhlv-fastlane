@@ -1,0 +1,40 @@
+# Fastfile - Quản lý Build & Deploy Ứng Dụng Đa Nền Tảng (iOS, macOS, Android/AOS)
+# Documentation: https://docs.fastlane.tools/
+
+# 1. Import các helper dùng chung
+import "helpers/api_key_helper.rb"
+import "helpers/app_config_helper.rb"
+import "helpers/cert_helper.rb"
+import "helpers/git_workspace_helper.rb"
+
+before_all do
+  setup_ci if is_ci
+end
+
+# Lane tiện ích độc lập (không phụ thuộc platform)
+desc "Mã hoá và push App Store Connect API Key lên MATCH_GIT_URL"
+lane :push_api_key do |options|
+  push_api_key_to_git(options)
+end
+
+desc "Dọn dẹp các Certificate & Provisioning Profile cũ/hết hạn trên máy local"
+lane :clean_local_certs do |options|
+  clean_old_local_certs(options)
+end
+
+desc "Dọn dẹp các Provisioning Profile cũ/hết hạn trên máy local"
+lane :clean_local_profiles do |options|
+  clean_local_provisioning_profiles(options)
+end
+
+desc "Chuẩn bị hoặc cập nhật mã nguồn trong .workspace cho 1 app"
+lane :prepare_workspace do |options|
+  app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane prepare_workspace app:OpsFlow_Hub")
+  app_info = get_app_config(app_key)
+  prepare_app_workspace(app_key, app_info, options)
+end
+
+# 2. Import các lane theo từng nền tảng
+import "lanes/ios.rb"
+import "lanes/macos.rb"
+import "lanes/aos.rb"
