@@ -12,6 +12,7 @@ on:
           - "all"
           - "OpsFlow_Hub"
           - "app-remove-app"
+          - "session_browser_app"
       action:
         description: "Hành động thực hiện"
         required: true

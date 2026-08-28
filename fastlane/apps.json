@@ -26,5 +26,17 @@
     "package_name": "com.thanhlv.remove_app",
     "version": "1.0.0",
     "description": "Find apps fast and uninstall one app or multiple apps with clear progress."
+  },
+  "session_browser_app": {
+    "app_name": "Isolated Session Browser",
+    "git_url": "git@github.com:thanhlv-com/session_browser.git",
+    "branch": "main",
+    "platforms": [
+      "aos"
+    ],
+    "bundle_id": "com.thanhlv.session_browser_app",
+    "package_name": "com.thanhlv.session_browser_app",
+    "version": "1.0.0",
+    "description": "Manage multiple websites with isolated sessions and separate logins"
   }
 }
