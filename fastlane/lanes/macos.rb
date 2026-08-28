@@ -19,7 +19,7 @@ platform :mac do
       api_key: api_key,
       app_identifier: bundle_id,
       app_name: app_info["app_name"],
-      language: "Vietnamese",
+      language: "English",
       platform: "osx",
       skip_itc: false
     )
