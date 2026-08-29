@@ -1,0 +1,1 @@
+Cập nhật tính năng và cải thiện hiệu năng cho iOS.

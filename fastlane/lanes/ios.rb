@@ -229,18 +229,55 @@ platform :ios do
         skip_waiting_for_build_processing: true
       )
     elsif target.to_s.downcase == "appstore"
+      should_upload_metadata = options[:upload_metadata] == true || options[:upload_metadata] == "true"
+      metadata_dir = resolve_metadata_path(app_key, "ios", options)
+      screenshots_dir = resolve_screenshots_path(app_key, "ios", options)
+      skip_screenshots = options[:upload_screenshots] != true && options[:upload_screenshots] != "true" && options[:screenshots] != true && options[:screenshots] != "true"
+
       upload_to_app_store(
         api_key: api_key,
         app_identifier: bundle_id,
         ipa: ipa_file,
         force: true,
-        skip_screenshots: true,
-        skip_metadata: true
+        metadata_path: metadata_dir,
+        screenshots_path: screenshots_dir,
+        skip_screenshots: skip_screenshots,
+        skip_metadata: !should_upload_metadata,
+        run_precheck_before_submit: false
       )
     else
       UI.user_error!("Target không hợp lệ: #{target}. Chỉ chấp nhận 'testflight' hoặc 'appstore'.")
     end
 
     UI.success("🎉 Phát hành thành công #{app_info['app_name']} (#{bundle_id}) lên #{target} cho iOS!")
+  end
+
+  desc "Cập nhật (Push/Upload) Metadata lên App Store Connect cho iOS"
+  lane :push_metadata do |options|
+    app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane ios push_metadata app:OpsFlow_Hub [version:1.0.0] [upload_screenshots:true]")
+    upload_app_metadata_to_store(app_key, "ios", options)
+  end
+
+  desc "Cập nhật Metadata lên App Store Connect cho iOS (alias: push_metadata)"
+  lane :upload_metadata do |options|
+    push_metadata(options)
+  end
+
+  desc "Tải (Pull/Download) Metadata và Screenshots từ App Store Connect về local cho iOS để chỉnh sửa"
+  lane :pull_metadata do |options|
+    app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane ios pull_metadata app:OpsFlow_Hub [skip_screenshots:false]")
+    download_app_metadata_from_store(app_key, "ios", options)
+  end
+
+  desc "Tải Metadata và Screenshots từ App Store Connect về local cho iOS (alias: pull_metadata)"
+  lane :download_metadata do |options|
+    pull_metadata(options)
+  end
+
+  desc "Khởi tạo thư mục và các file Metadata template mẫu cho iOS app"
+  lane :init_metadata do |options|
+    app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane ios init_metadata app:OpsFlow_Hub")
+    app_info = get_app_config(app_key)
+    init_app_metadata_template(app_key, app_info, "ios")
   end
 end

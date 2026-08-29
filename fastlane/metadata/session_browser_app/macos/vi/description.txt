@@ -1,0 +1,6 @@
+Manage multiple websites with isolated sessions and separate logins
+
+Đặc quyền trên macOS:
+• Tích hợp mượt mà với bàn phím và phím tắt macOS
+• Quản lý tác vụ nền và thanh MenuBar
+• Hiệu năng tối đa trên Apple Silicon & Intel

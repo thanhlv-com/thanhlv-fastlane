@@ -1,0 +1,6 @@
+OpsFlow Hub Multi-Platform Application (iOS, macOS, Android)
+
+macOS Exclusive Highlights:
+• Native keyboard shortcuts and desktop integration
+• MenuBar and background task support
+• Optimized for Apple Silicon and Intel Macs

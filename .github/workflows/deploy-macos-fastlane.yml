@@ -19,6 +19,7 @@ on:
         options:
           - deploy
           - build_only
+          - upload_metadata
       target:
         description: "Mục tiêu phát hành (khi chọn action = deploy)"
         required: true
@@ -168,6 +169,8 @@ jobs:
               echo "=================================================="
               if [ "$ACTION_TYPE" = "deploy" ]; then
                 bundle exec fastlane mac deploy app:$app_key target:$TARGET_ENV $EXTRA_ARGS || exit 1
+              elif [ "$ACTION_TYPE" = "upload_metadata" ]; then
+                bundle exec fastlane mac upload_metadata app:$app_key $EXTRA_ARGS || exit 1
               else
                 bundle exec fastlane mac build app:$app_key $EXTRA_ARGS || exit 1
               fi
@@ -176,6 +179,8 @@ jobs:
             echo "🚀 Đang xử lý ($ACTION_TYPE): $TARGET_APP"
             if [ "$ACTION_TYPE" = "deploy" ]; then
               bundle exec fastlane mac deploy app:$TARGET_APP target:$TARGET_ENV $EXTRA_ARGS
+            elif [ "$ACTION_TYPE" = "upload_metadata" ]; then
+              bundle exec fastlane mac upload_metadata app:$TARGET_APP $EXTRA_ARGS
             else
               bundle exec fastlane mac build app:$TARGET_APP $EXTRA_ARGS
             fi

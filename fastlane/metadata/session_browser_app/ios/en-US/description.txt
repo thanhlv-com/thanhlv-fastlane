@@ -1,0 +1,6 @@
+Manage multiple websites with isolated sessions and separate logins
+
+Key Features:
+• Optimized workflow management
+• Modern and intuitive user interface
+• Fast, secure, and reliable

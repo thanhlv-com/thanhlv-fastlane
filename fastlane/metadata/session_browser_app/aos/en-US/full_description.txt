@@ -1,0 +1,7 @@
+Manage multiple websites with isolated sessions and separate logins
+
+Android Features:
+• Flexible task management on the go
+• Full compatibility with modern Android OS
+• Lightweight and battery-optimized
+• Modern Dark Mode support

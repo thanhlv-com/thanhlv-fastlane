@@ -1,0 +1,6 @@
+Manage multiple websites with isolated sessions and separate logins
+
+Tính năng trên Linux:
+• Đóng gói hỗ trợ Flatpak, Snap và AppImage
+• Tương thích các Desktop Environment (GNOME, KDE Plasma, XFCE)
+• Hiệu năng tối đa trên kiến trúc x86_64 và ARM64

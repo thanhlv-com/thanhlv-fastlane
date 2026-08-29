@@ -1,0 +1,12 @@
+Dev Tool is an application designed for development and operations engineers who need to work quickly with servers and databases from anywhere. It focuses on two core workflows—Database Workbench and Remote Ops SSH—ensuring a consistent experience across both Mobile and desktop platforms.
+
+Key Features:
+- Manage MySQL and SSH connection profiles with a clear, reusable setup.
+- Open, monitor, and manage multiple sessions as needed.
+- Execute SQL queries and quickly view data tables, operation history, and results.
+- Establish stable SSH connections for remote command execution.
+- Support for file/folder selection for uploads and download destinations.
+- Flexible display settings optimized for both mobile and PC.
+- Multi-language support, light/dark mode, and an interface designed for efficient workflows.
+
+Dev Tool is designed to minimize repetitive tasks, accelerate technical workflows, and maintain a focused, secure working environment.

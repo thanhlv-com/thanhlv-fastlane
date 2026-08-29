@@ -1,9 +1,19 @@
-# fastlane/helpers/app_config_helper.rb
-# Helper đọc cấu hình ứng dụng từ apps.json và xử lý versioning, bundle_id, flavor
-
 require 'json'
-require 'fastlane_core'
-require 'fastlane_core/ui/ui'
+begin
+  require 'fastlane_core'
+  require 'fastlane_core/ui/ui'
+rescue LoadError
+end
+
+module FastlaneCore
+  class UI
+    def self.message(msg); puts msg; end
+    def self.success(msg); puts msg; end
+    def self.important(msg); puts msg; end
+    def self.error(msg); puts msg; end
+    def self.user_error!(msg); raise msg; end
+  end
+end unless defined?(FastlaneCore::UI)
 
 UI = FastlaneCore::UI unless defined?(UI)
 

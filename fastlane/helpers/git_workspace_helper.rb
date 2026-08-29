@@ -3,8 +3,21 @@
 
 require 'fileutils'
 require 'open3'
-require 'fastlane_core'
-require 'fastlane_core/ui/ui'
+begin
+  require 'fastlane_core'
+  require 'fastlane_core/ui/ui'
+rescue LoadError
+end
+
+module FastlaneCore
+  class UI
+    def self.message(msg); puts msg; end
+    def self.success(msg); puts msg; end
+    def self.important(msg); puts msg; end
+    def self.error(msg); puts msg; end
+    def self.user_error!(msg); raise msg; end
+  end
+end unless defined?(FastlaneCore::UI)
 
 UI = FastlaneCore::UI unless defined?(UI)
 
@@ -29,6 +42,10 @@ def normalize_platform_name(platform)
     "macos"
   when "ios", "iphone", "ipad"
     "ios"
+  when "windows", "win", "win32", "win64"
+    "windows"
+  when "linux", "ubuntu", "debian"
+    "linux"
   else
     p
   end

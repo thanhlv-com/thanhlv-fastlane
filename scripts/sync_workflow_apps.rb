@@ -108,5 +108,7 @@ update_workflow_app_input(File.join(WORKFLOWS_DIR, "deploy-ios-fastlane.yml"), i
 update_workflow_app_input(File.join(WORKFLOWS_DIR, "deploy-macos-fastlane.yml"), macos_apps, "all", true)
 update_workflow_app_input(File.join(WORKFLOWS_DIR, "deploy-aos-fastlane.yml"), aos_apps, "all", true)
 update_workflow_app_input(File.join(WORKFLOWS_DIR, "sync-certs-fastlane.yml"), apple_apps, "all", false)
+all_apps = apps_data.keys
+update_workflow_app_input(File.join(WORKFLOWS_DIR, "update-metadata-fastlane.yml"), all_apps, "all", true)
 
 puts "🎉 Hoàn tất tự động cập nhật Type Choice cho tất cả GitHub Actions Workflows!"

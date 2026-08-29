@@ -1,0 +1,6 @@
+Manage multiple websites with isolated sessions and separate logins
+
+Tính năng trên Windows:
+• Tương thích Windows 10 & Windows 11
+• Hỗ trợ giao diện Fluent Design hiện đại
+• Tích hợp Windows Notifications và System Tray

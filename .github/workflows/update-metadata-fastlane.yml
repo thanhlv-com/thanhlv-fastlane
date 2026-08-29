@@ -1,0 +1,214 @@
+name: Update Multi-Platform Metadata (iOS, macOS, AOS, Windows, Linux)
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "Chọn App Key trong apps.json (hoặc 'all' để áp dụng toàn bộ)"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "OpsFlow_Hub"
+          - "app-remove-app"
+          - "session_browser_app"
+      platform:
+        description: "Nền tảng mục tiêu"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - ios
+          - macos
+          - aos
+          - windows
+          - linux
+      action:
+        description: "Hành động metadata (push/upload lên Store hoặc pull/download về local)"
+        required: true
+        default: "push"
+        type: choice
+        options:
+          - push
+          - pull
+          - upload
+          - download
+      version:
+        description: "App Version (Tùy chọn, ví dụ: 1.0.0. Để trống sẽ lấy từ apps.json)"
+        required: false
+        default: ""
+        type: string
+      upload_screenshots:
+        description: "Upload kèm Screenshots (chỉ áp dụng khi action = upload)"
+        required: false
+        default: false
+        type: boolean
+      submit_for_review:
+        description: "Tự động gửi duyệt App Store / Store sau khi upload metadata (nếu có hỗ trợ)"
+        required: false
+        default: false
+        type: boolean
+
+# ==============================================================================
+# KHAI BÁO TẬP TRUNG TẤT CẢ BIẾN MÔI TRƯỜNG & SECRETS TỪ GITHUB Ở ĐẦU FILE
+# ==============================================================================
+env:
+  # GitHub App & Repository Context
+  GH_APP_ID: "3766151"
+  GH_APP_PRIVATE_KEY: ${{ secrets.THANHLV_PRIVATE_KEY }}
+  GH_REPO_OWNER: ${{ github.repository_owner }}
+  KEYSTORE_REPO_NAME: "apple-certificates-keystore"
+
+  # Apple Developer & App Store Connect Secrets
+  CFG_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+  CFG_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+  CFG_ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+  CFG_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+  CFG_ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
+
+  # Fastlane Match Secrets
+  CFG_MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+  CFG_MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD || 'ci_secure_keychain_pass' }}
+
+  # Google Play Secrets (AOS)
+  CFG_SUPPLY_JSON_KEY_DATA: ${{ secrets.PLAY_STORE_JSON_KEY || secrets.SUPPLY_JSON_KEY_DATA }}
+
+  # Workflow Inputs
+  INPUT_APP: ${{ inputs.app }}
+  INPUT_PLATFORM: ${{ inputs.platform }}
+  INPUT_ACTION: ${{ inputs.action }}
+  INPUT_VERSION: ${{ inputs.version }}
+  INPUT_UPLOAD_SCREENSHOTS: ${{ inputs.upload_screenshots }}
+  INPUT_SUBMIT_FOR_REVIEW: ${{ inputs.submit_for_review }}
+
+jobs:
+  update-metadata:
+    name: Metadata (${{ inputs.app }} [${{ inputs.platform }}] -> ${{ inputs.action }})
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 1. Tạo GitHub App Token để truy cập private keystore nếu cần
+      - name: Generate GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.GH_APP_ID }}
+          private-key: ${{ env.GH_APP_PRIVATE_KEY }}
+          owner: ${{ env.GH_REPO_OWNER }}
+
+      # 2. Cấu hình Git để tự động dùng App Token
+      - name: Configure Git for Private Repositories
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "git@github.com:"
+
+      # 3. Thiết lập Ruby & Cài đặt Fastlane qua Bundler (có cache)
+      - name: Setup Ruby & Bundler
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      # 4. Thực thi Fastlane Upload / Download Metadata theo từng platform
+      - name: Run Fastlane Metadata
+        env:
+          ASC_KEY_ID: ${{ env.CFG_ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ env.CFG_ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ env.CFG_ASC_KEY_CONTENT }}
+          APPLE_TEAM_ID: ${{ env.CFG_APPLE_TEAM_ID }}
+          ITC_TEAM_ID: ${{ env.CFG_ITC_TEAM_ID }}
+          MATCH_PASSWORD: ${{ env.CFG_MATCH_PASSWORD }}
+          MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ env.GH_REPO_OWNER }}/${{ env.KEYSTORE_REPO_NAME }}.git"
+          MATCH_KEYCHAIN_PASSWORD: ${{ env.CFG_MATCH_KEYCHAIN_PASSWORD }}
+          SUPPLY_JSON_KEY_DATA: ${{ env.CFG_SUPPLY_JSON_KEY_DATA }}
+          CI: "true"
+        run: |
+          TARGET_APP="$INPUT_APP"
+          TARGET_PLATFORM="$INPUT_PLATFORM"
+          ACTION_TYPE="$INPUT_ACTION"
+          VERSION_ARG=""
+          [ -n "$INPUT_VERSION" ] && VERSION_ARG="version:$INPUT_VERSION"
+
+          EXTRA_ARGS="$VERSION_ARG upload_screenshots:$INPUT_UPLOAD_SCREENSHOTS submit_for_review:$INPUT_SUBMIT_FOR_REVIEW"
+
+          run_for_app_and_platform() {
+            local app_key="$1"
+            local platform="$2"
+
+            echo "=================================================="
+            echo "📝 Processing App: $app_key | Platform: $platform | Action: $ACTION_TYPE"
+            echo "=================================================="
+
+            case "$platform" in
+              ios)
+                if [ "$ACTION_TYPE" = "upload" ] || [ "$ACTION_TYPE" = "push" ]; then
+                  bundle exec fastlane ios push_metadata app:$app_key $EXTRA_ARGS || exit 1
+                else
+                  bundle exec fastlane ios pull_metadata app:$app_key skip_screenshots:false || exit 1
+                fi
+                ;;
+              macos)
+                if [ "$ACTION_TYPE" = "upload" ] || [ "$ACTION_TYPE" = "push" ]; then
+                  bundle exec fastlane mac push_metadata app:$app_key $EXTRA_ARGS || exit 1
+                else
+                  bundle exec fastlane mac pull_metadata app:$app_key skip_screenshots:false || exit 1
+                fi
+                ;;
+              aos)
+                if [ "$ACTION_TYPE" = "upload" ] || [ "$ACTION_TYPE" = "push" ]; then
+                  bundle exec fastlane aos push_metadata app:$app_key $EXTRA_ARGS || exit 1
+                else
+                  bundle exec fastlane aos pull_metadata app:$app_key || exit 1
+                fi
+                ;;
+              windows)
+                bundle exec fastlane windows upload_metadata app:$app_key $EXTRA_ARGS || exit 1
+                ;;
+              linux)
+                bundle exec fastlane linux upload_metadata app:$app_key $EXTRA_ARGS || exit 1
+                ;;
+            esac
+          }
+
+          resolve_and_run() {
+            local app_key="$1"
+            local platform_req="$2"
+
+            if [ "$platform_req" = "all" ]; then
+              for p in ios macos aos windows linux; do
+                IS_SUPPORTED=$(jq -r --arg k "$app_key" --arg p "$p" '.[$k].platforms | if . == null then "yes" elif (map(ascii_downcase) | index($p)) then "yes" else "no" end' fastlane/apps.json)
+                if [ "$IS_SUPPORTED" = "yes" ]; then
+                  run_for_app_and_platform "$app_key" "$p"
+                fi
+              done
+            else
+              run_for_app_and_platform "$app_key" "$platform_req"
+            fi
+          }
+
+          if [ "$TARGET_APP" = "all" ]; then
+            echo "🔍 Đang quét danh sách Apps từ fastlane/apps.json..."
+            ALL_APPS=$(jq -r 'keys[]' fastlane/apps.json)
+            for app_k in $ALL_APPS; do
+              resolve_and_run "$app_k" "$TARGET_PLATFORM"
+            done
+          else
+            resolve_and_run "$TARGET_APP" "$TARGET_PLATFORM"
+          fi
+
+      # 5. Upload Artifacts metadata sau khi thực thi
+      - name: Upload Metadata Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: multiplatform-metadata
+          path: |
+            fastlane/metadata/
+          if-no-files-found: ignore
+          retention-days: 14

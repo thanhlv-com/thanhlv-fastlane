@@ -1,0 +1,6 @@
+Manage multiple websites with isolated sessions and separate logins
+
+Linux Highlights:
+• Packaged for Flatpak, Snap, and AppImage
+• Desktop environment compatible (GNOME, KDE Plasma, XFCE)
+• Native speed on x86_64 and ARM64 architectures

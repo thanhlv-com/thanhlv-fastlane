@@ -3,7 +3,7 @@
 # Repository: thanhlv-fastlane
 # ==============================================================================
 
-.PHONY: help sync-workflows sync check-workflows validate install clean-certs clean-profiles ios-build ios-deploy mac-build mac-deploy aos-build aos-deploy
+.PHONY: help sync-workflows sync check-workflows validate install clean-certs clean-profiles ios-build ios-deploy mac-build mac-deploy aos-build aos-deploy ios-metadata-upload ios-metadata-download ios-metadata-push ios-metadata-pull mac-metadata-upload mac-metadata-download mac-metadata-push mac-metadata-pull aos-metadata-upload aos-metadata-download aos-metadata-push aos-metadata-pull metadata-init metadata-push metadata-pull
 
 # Màu sắc hiển thị terminal
 CYAN    := \033[36m
@@ -43,6 +43,16 @@ help:
 	@echo "  $(GREEN)make clean-profiles$(RESET) - Dọn dẹp provisioning profiles cũ trên máy local"
 	@echo "  $(GREEN)make sync-certs-ios$(RESET)  - Đồng bộ certs qua Match cho iOS"
 	@echo "  $(GREEN)make sync-certs-mac$(RESET)  - Đồng bộ certs qua Match cho macOS"
+	@echo ""
+	@echo "$(BOLD)$(YELLOW)📝 QUẢN LÝ & ĐỒNG BỘ 2 CHIỀU METADATA (PULL & PUSH):$(RESET)"
+	@echo "  $(GREEN)make metadata-init APP=OpsFlow_Hub [PLATFORM=all|ios|macos|aos|windows|linux]$(RESET)"
+	@echo "      Khởi tạo bộ thư mục metadata mẫu tách biệt theo từng nền tảng."
+	@echo "  $(GREEN)make ios-metadata-pull APP=OpsFlow_Hub$(RESET)   - Tải (Pull) metadata iOS từ App Store về local để sửa"
+	@echo "  $(GREEN)make ios-metadata-push APP=OpsFlow_Hub$(RESET)   - Đẩy (Push) metadata iOS từ local lên App Store"
+	@echo "  $(GREEN)make mac-metadata-pull APP=OpsFlow_Hub$(RESET)   - Tải (Pull) metadata macOS từ Mac App Store về local để sửa"
+	@echo "  $(GREEN)make mac-metadata-push APP=OpsFlow_Hub$(RESET)   - Đẩy (Push) metadata macOS từ local lên Mac App Store"
+	@echo "  $(GREEN)make aos-metadata-pull APP=OpsFlow_Hub$(RESET)   - Tải (Pull) metadata Android từ Google Play về local"
+	@echo "  $(GREEN)make aos-metadata-push APP=OpsFlow_Hub$(RESET)   - Đẩy (Push) metadata Android từ local lên Google Play"
 	@echo ""
 	@echo "$(BOLD)$(YELLOW)🚀 THỰC THI FASTLANE LOCAL:$(RESET)"
 	@echo "  $(GREEN)make ios-build APP=OpsFlow_Hub$(RESET)   - Build iOS IPA"
@@ -140,3 +150,83 @@ aos-deploy:
 		exit 1; \
 	fi
 	@bundle exec fastlane aos deploy app:$(APP) track:$${TRACK:-internal}
+
+## Quản lý & Đồng bộ 2 Chiều Metadata (Pull từ Store & Push lên Store)
+metadata-init:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make metadata-init APP=OpsFlow_Hub [PLATFORM=all|ios|macos|aos|windows|linux]$(RESET)"; \
+		exit 1; \
+	fi
+	@bundle exec fastlane init_metadata app:$(APP) platform:$${PLATFORM:-all}
+
+metadata-push:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make metadata-push APP=OpsFlow_Hub [PLATFORM=ios|macos|aos]$(RESET)"; \
+		exit 1; \
+	fi
+	@bundle exec fastlane push_metadata app:$(APP) platform:$${PLATFORM:-ios} version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false}
+
+metadata-pull:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make metadata-pull APP=OpsFlow_Hub [PLATFORM=ios|macos|aos]$(RESET)"; \
+		exit 1; \
+	fi
+	@bundle exec fastlane pull_metadata app:$(APP) platform:$${PLATFORM:-ios} skip_screenshots:$${SKIP_SCREENSHOTS:-true}
+
+# iOS (Apple App Store)
+ios-metadata-push:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make ios-metadata-push APP=OpsFlow_Hub$(RESET)"; \
+		exit 1; \
+	fi
+	@bundle exec fastlane ios push_metadata app:$(APP) version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false}
+
+ios-metadata-upload: ios-metadata-push
+
+ios-metadata-pull:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make ios-metadata-pull APP=OpsFlow_Hub$(RESET)"; \
+		exit 1; \
+	fi
+	@bundle exec fastlane ios pull_metadata app:$(APP) skip_screenshots:$${SKIP_SCREENSHOTS:-true}
+
+ios-metadata-download: ios-metadata-pull
+
+# macOS (Mac App Store)
+mac-metadata-push:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make mac-metadata-push APP=OpsFlow_Hub$(RESET)"; \
+		exit 1; \
+	fi
+	@bundle exec fastlane mac push_metadata app:$(APP) version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false}
+
+mac-metadata-upload: mac-metadata-push
+
+mac-metadata-pull:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make mac-metadata-pull APP=OpsFlow_Hub$(RESET)"; \
+		exit 1; \
+	fi
+	@bundle exec fastlane mac pull_metadata app:$(APP) skip_screenshots:$${SKIP_SCREENSHOTS:-true}
+
+mac-metadata-download: mac-metadata-pull
+
+# Android / AOS (Google Play Store)
+aos-metadata-push:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make aos-metadata-push APP=OpsFlow_Hub$(RESET)"; \
+		exit 1; \
+	fi
+	@bundle exec fastlane aos push_metadata app:$(APP) upload_screenshots:$${SCREENSHOTS:-false}
+
+aos-metadata-upload: aos-metadata-push
+
+aos-metadata-pull:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make aos-metadata-pull APP=OpsFlow_Hub$(RESET)"; \
+		exit 1; \
+	fi
+	@bundle exec fastlane aos pull_metadata app:$(APP)
+
+aos-metadata-download: aos-metadata-pull
+

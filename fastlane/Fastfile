@@ -6,6 +6,7 @@ import "helpers/api_key_helper.rb"
 import "helpers/app_config_helper.rb"
 import "helpers/cert_helper.rb"
 import "helpers/git_workspace_helper.rb"
+import "helpers/metadata_helper.rb"
 
 before_all do
   setup_ci if is_ci
@@ -34,7 +35,40 @@ lane :prepare_workspace do |options|
   prepare_app_workspace(app_key, app_info, options)
 end
 
+desc "Khởi tạo thư mục và các file Metadata template mẫu cho 1 app"
+lane :init_metadata do |options|
+  app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane init_metadata app:OpsFlow_Hub")
+  app_info = get_app_config(app_key)
+  init_app_metadata_template(app_key, app_info)
+end
+
+desc "Cập nhật (Push/Upload) Metadata từ local lên App Store / Store"
+lane :push_metadata do |options|
+  app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane push_metadata app:OpsFlow_Hub [platform:ios|macos|aos]")
+  platform = options[:platform] || "ios"
+  upload_app_metadata_to_store(app_key, platform, options)
+end
+
+desc "Cập nhật Metadata lên App Store Connect (alias: push_metadata)"
+lane :upload_metadata do |options|
+  push_metadata(options)
+end
+
+desc "Tải (Pull/Download) Metadata từ App Store / Store về máy local để chỉnh sửa"
+lane :pull_metadata do |options|
+  app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane pull_metadata app:OpsFlow_Hub [platform:ios|macos|aos]")
+  platform = options[:platform] || "ios"
+  download_app_metadata_from_store(app_key, platform, options)
+end
+
+desc "Tải Metadata từ App Store Connect về máy local (alias: pull_metadata)"
+lane :download_metadata do |options|
+  pull_metadata(options)
+end
+
 # 2. Import các lane theo từng nền tảng
 import "lanes/ios.rb"
 import "lanes/macos.rb"
 import "lanes/aos.rb"
+import "lanes/windows.rb"
+import "lanes/linux.rb"

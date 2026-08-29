@@ -1,0 +1,6 @@
+Manage multiple websites with isolated sessions and separate logins
+
+macOS Exclusive Highlights:
+• Native keyboard shortcuts and desktop integration
+• MenuBar and background task support
+• Optimized for Apple Silicon and Intel Macs

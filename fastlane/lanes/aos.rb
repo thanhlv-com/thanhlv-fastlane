@@ -118,6 +118,35 @@ platform :aos do
   lane :deploy do |options|
     deploy_aos_app(options)
   end
+
+  desc "Cập nhật (Push/Upload) Metadata & Changelogs lên Google Play Console"
+  lane :push_metadata do |options|
+    app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane aos push_metadata app:OpsFlow_Hub [upload_screenshots:true]")
+    upload_app_metadata_to_store(app_key, "aos", options)
+  end
+
+  desc "Cập nhật Metadata lên Google Play Console (alias: push_metadata)"
+  lane :upload_metadata do |options|
+    push_metadata(options)
+  end
+
+  desc "Tải (Pull/Download) Metadata và Screenshots từ Google Play Store về local"
+  lane :pull_metadata do |options|
+    app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane aos pull_metadata app:OpsFlow_Hub")
+    download_app_metadata_from_store(app_key, "aos", options)
+  end
+
+  desc "Tải Metadata và Screenshots từ Google Play Store về local (alias: pull_metadata)"
+  lane :download_metadata do |options|
+    pull_metadata(options)
+  end
+
+  desc "Khởi tạo thư mục và các file Metadata template mẫu cho Android (AOS)"
+  lane :init_metadata do |options|
+    app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane aos init_metadata app:OpsFlow_Hub")
+    app_info = get_app_config(app_key)
+    init_app_metadata_template(app_key, app_info, "aos")
+  end
 end
 
 # Hỗ trợ platform :android (alias)
@@ -139,5 +168,34 @@ platform :android do
   desc "Build Android App Bundle (.aab) và Deploy lên Google Play Console"
   lane :deploy do |options|
     deploy_aos_app(options)
+  end
+
+  desc "Cập nhật (Push/Upload) Metadata & Changelogs lên Google Play Console"
+  lane :push_metadata do |options|
+    app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane android push_metadata app:OpsFlow_Hub [upload_screenshots:true]")
+    upload_app_metadata_to_store(app_key, "aos", options)
+  end
+
+  desc "Cập nhật Metadata lên Google Play Console (alias: push_metadata)"
+  lane :upload_metadata do |options|
+    push_metadata(options)
+  end
+
+  desc "Tải (Pull/Download) Metadata và Screenshots từ Google Play Store về local"
+  lane :pull_metadata do |options|
+    app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane android pull_metadata app:OpsFlow_Hub")
+    download_app_metadata_from_store(app_key, "aos", options)
+  end
+
+  desc "Tải Metadata và Screenshots từ Google Play Store về local (alias: pull_metadata)"
+  lane :download_metadata do |options|
+    pull_metadata(options)
+  end
+
+  desc "Khởi tạo thư mục và các file Metadata template mẫu cho Android"
+  lane :init_metadata do |options|
+    app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane android init_metadata app:OpsFlow_Hub")
+    app_info = get_app_config(app_key)
+    init_app_metadata_template(app_key, app_info, "aos")
   end
 end

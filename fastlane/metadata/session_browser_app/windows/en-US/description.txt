@@ -1,0 +1,6 @@
+Manage multiple websites with isolated sessions and separate logins
+
+Windows Highlights:
+• Built for Windows 10 and Windows 11
+• Modern Fluent Design UI
+• Native system tray and notification support

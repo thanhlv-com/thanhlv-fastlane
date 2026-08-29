@@ -1,0 +1,6 @@
+Manage multiple websites with isolated sessions and separate logins
+
+Tính năng chính:
+• Tối ưu hoá quy trình làm việc
+• Giao diện hiện đại, dễ sử dụng
+• Bảo mật và tốc độ cao
