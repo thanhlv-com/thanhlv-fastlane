@@ -20,6 +20,7 @@ on:
         options:
           - "all"
           - "OpsFlow_Hub"
+          - "session_browser_app"
       type:
         description: "Loại Certificate / Profile"
         required: true
