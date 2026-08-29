@@ -241,6 +241,7 @@ platform :ios do
         force: true,
         metadata_path: metadata_dir,
         screenshots_path: screenshots_dir,
+        ignore_language_directory_validation: true,
         skip_screenshots: skip_screenshots,
         skip_metadata: !should_upload_metadata,
         run_precheck_before_submit: false

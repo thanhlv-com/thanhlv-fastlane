@@ -602,6 +602,7 @@ def upload_app_metadata_to_store(app_key, platform, options = {})
       platform: deliver_platform,
       metadata_path: metadata_dir,
       screenshots_path: screenshots_dir,
+      ignore_language_directory_validation: true,
       skip_binary_upload: true,
       skip_metadata: false,
       skip_screenshots: skip_screenshots,
