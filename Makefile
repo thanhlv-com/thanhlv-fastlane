@@ -171,7 +171,7 @@ metadata-pull:
 		echo "$(RED)❌ Vui lòng chỉ định app: make metadata-pull APP=OpsFlow_Hub [PLATFORM=ios|macos|aos]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane pull_metadata app:$(APP) platform:$${PLATFORM:-ios} skip_screenshots:$${SKIP_SCREENSHOTS:-true}
+	@bundle exec fastlane pull_metadata app:$(APP) platform:$${PLATFORM:-ios} skip_screenshots:$${SKIP_SCREENSHOTS:-false}
 
 # iOS (Apple App Store)
 ios-metadata-push:
@@ -188,7 +188,7 @@ ios-metadata-pull:
 		echo "$(RED)❌ Vui lòng chỉ định app: make ios-metadata-pull APP=OpsFlow_Hub$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane ios pull_metadata app:$(APP) skip_screenshots:$${SKIP_SCREENSHOTS:-true}
+	@bundle exec fastlane ios pull_metadata app:$(APP) skip_screenshots:$${SKIP_SCREENSHOTS:-false}
 
 ios-metadata-download: ios-metadata-pull
 
@@ -207,7 +207,7 @@ mac-metadata-pull:
 		echo "$(RED)❌ Vui lòng chỉ định app: make mac-metadata-pull APP=OpsFlow_Hub$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane mac pull_metadata app:$(APP) skip_screenshots:$${SKIP_SCREENSHOTS:-true}
+	@bundle exec fastlane mac pull_metadata app:$(APP) skip_screenshots:$${SKIP_SCREENSHOTS:-false}
 
 mac-metadata-download: mac-metadata-pull
 

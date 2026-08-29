@@ -372,6 +372,85 @@ def init_app_metadata_template(app_key, app_info = {}, platform = "all", locales
 end
 
 # ==============================================================================
+# HÀM TẢI SCREENSHOTS TRỰC TIẾP TỪ APP STORE CONNECT (SPACESHIP CONNECT API)
+# ==============================================================================
+
+def download_app_store_screenshots_direct(app, version, screenshots_dir, platform_code)
+  require 'open-uri'
+  require 'fileutils'
+
+  FileUtils.mkdir_p(screenshots_dir)
+  candidate_versions = []
+  candidate_versions << version if version
+  candidate_versions << (app.get_edit_app_store_version(platform: platform_code) rescue nil)
+  candidate_versions << (app.get_live_app_store_version(platform: platform_code) rescue nil)
+  candidate_versions << (app.get_latest_app_store_version(platform: platform_code) rescue nil)
+  (app.get_app_store_versions(platform: platform_code) rescue []).each { |v| candidate_versions << v }
+  candidate_versions = candidate_versions.compact.uniq
+
+  downloaded_count = 0
+
+  candidate_versions.each do |v|
+    v_name = v.version_string rescue "current"
+    localizations = v.get_app_store_version_localizations rescue []
+    next if localizations.nil? || localizations.empty?
+
+    localizations.each do |loc|
+      locale = loc.locale
+      screenshot_sets = loc.get_app_screenshot_sets rescue []
+      next if screenshot_sets.nil? || screenshot_sets.empty?
+
+      screenshot_sets.each do |set|
+        display_type = set.screenshot_display_type || "SCREENSHOT"
+        screenshots = set.app_screenshots || (set.get_app_screenshots rescue [])
+        next if screenshots.nil? || screenshots.empty?
+
+        locale_folder = if set.respond_to?(:apple_tv?) && set.apple_tv?
+                          File.join(screenshots_dir, "appleTV", locale)
+                        elsif set.respond_to?(:imessage?) && set.imessage?
+                          File.join(screenshots_dir, "iMessage", locale)
+                        else
+                          File.join(screenshots_dir, locale)
+                        end
+        FileUtils.mkdir_p(locale_folder)
+
+        screenshots.each_with_index do |shot, idx|
+          raw_ext = File.extname(shot.file_name.to_s).delete(".").downcase
+          ext = raw_ext.empty? ? "png" : raw_ext
+          file_name = "#{idx + 1}_#{display_type}_#{idx + 1}.#{ext}"
+          target_file = File.join(locale_folder, file_name)
+
+          url = shot.image_asset_url(type: ext) || shot.image_asset_url(type: "png")
+          if url.nil? || url.empty?
+            UI.important("⚠️ Không lấy được link tải cho screenshot: #{shot.file_name}")
+            next
+          end
+
+          UI.message("  📸 [#{locale}] Đang tải ảnh #{display_type} (Version #{v_name})...")
+          begin
+            image_data = URI.open(url, "rb").read
+            File.binwrite(target_file, image_data)
+            downloaded_count += 1
+            UI.success("  ✔ Đã lưu: #{file_name} -> #{locale_folder}/")
+          rescue => err
+            UI.error("  ❌ Không thể tải file #{file_name}: #{err.message}")
+          end
+        end
+      end
+    end
+
+    # Nếu đã tải được ảnh từ version ưu tiên thì không cần tải trùng từ version khác
+    break if downloaded_count > 0
+  end
+
+  if downloaded_count > 0
+    UI.success("🎉 Đã tải về thành công #{downloaded_count} ảnh Screenshots từ App Store Connect!")
+  else
+    UI.important("ℹ️ Không tìm thấy ảnh Screenshot nào trên App Store Connect cho nền tảng này.")
+  end
+end
+
+# ==============================================================================
 # THAO TÁC DOWNLOAD / UPLOAD METADATA ĐA NỀN TẢNG
 # ==============================================================================
 
@@ -383,15 +462,16 @@ def download_app_metadata_from_store(app_key, platform, options = {})
 
   metadata_dir = resolve_metadata_path(app_key, platform_norm, options)
   screenshots_dir = resolve_screenshots_path(app_key, platform_norm, options)
-  skip_screenshots = options[:skip_screenshots] != false && options[:skip_screenshots] != "false" && options[:screenshots] != true && options[:screenshots] != "true"
+  # Mặc định kéo (pull) toàn bộ cả text metadata và ảnh screenshots
+  skip_screenshots = options[:skip_screenshots] == true || options[:skip_screenshots] == "true" || options[:screenshots] == false || options[:screenshots] == "false"
 
   UI.message("🌐 ========================================================")
-  UI.message("🌐 Đang tải Metadata từ Store về máy local:")
+  UI.message("🌐 Đang tải Metadata & Screenshots từ Store về máy local:")
   UI.message("🌐 App: #{app_info['app_name']} (#{app_key})")
   UI.message("🌐 Platform: #{platform_norm.upcase}")
   UI.message("🌐 Metadata Path: #{metadata_dir}")
   UI.message("🌐 Screenshots Path: #{screenshots_dir}")
-  UI.message("🌐 Skip Screenshots: #{skip_screenshots}")
+  UI.message("🌐 Tải Screenshots kèm theo: #{!skip_screenshots}")
   UI.message("🌐 ========================================================")
 
   case platform_norm
@@ -442,17 +522,8 @@ def download_app_metadata_from_store(app_key, platform, options = {})
       setup.generate_metadata_files(app, version, metadata_dir, { use_live_version: (options[:use_live_version] == true) })
 
       unless skip_screenshots
-        UI.message("📥 Đang tải Screenshots từ App Store Connect...")
-        FileUtils.mkdir_p(screenshots_dir)
-        deliver_config = FastlaneCore::Configuration.create(Deliver::Options.available_options, {
-          api_key: api_key,
-          app_identifier: bundle_id,
-          platform: deliver_platform,
-          metadata_path: metadata_dir,
-          screenshots_path: screenshots_dir,
-          force: true
-        })
-        Deliver::DownloadScreenshots.new.download(deliver_config, screenshots_dir) rescue UI.important("⚠️ Không thể tải screenshots hoặc chưa có ảnh trên store.")
+        UI.message("📥 Đang tải Screenshots từ App Store Connect về #{screenshots_dir}...")
+        download_app_store_screenshots_direct(app, version, screenshots_dir, platform_code)
       end
     rescue => e
       UI.error("⚠️ Lỗi khi pull metadata: #{e.message}")
