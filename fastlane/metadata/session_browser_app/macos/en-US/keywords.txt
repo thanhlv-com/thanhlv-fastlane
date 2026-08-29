@@ -1,1 +1,1 @@
-macos, devops, mac app, desktop utility, thanhlv
+session,browser,multi account,workspace,isolated,desktop,tabs,cookie

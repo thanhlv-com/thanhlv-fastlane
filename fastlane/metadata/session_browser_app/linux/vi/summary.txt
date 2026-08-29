@@ -1,1 +1,1 @@
-Isolated Session Browser cho Linux Desktop
+Trình duyệt web đa phiên làm việc độc lập

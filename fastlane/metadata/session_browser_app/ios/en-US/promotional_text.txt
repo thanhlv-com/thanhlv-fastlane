@@ -1,1 +1,1 @@
-Manage multiple websites with isolated sessions and separate logins
+Manage multiple accounts with isolated sessions and dedicated workspaces.

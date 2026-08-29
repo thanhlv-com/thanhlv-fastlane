@@ -1,1 +1,1 @@
-Isolated Session Browser for macOS
+Isolated Multi-Account Browser

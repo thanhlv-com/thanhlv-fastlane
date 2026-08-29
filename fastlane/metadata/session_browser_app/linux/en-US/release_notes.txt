@@ -1,1 +1,1 @@
-Official release for Linux platforms.
+Official release for Linux desktop.

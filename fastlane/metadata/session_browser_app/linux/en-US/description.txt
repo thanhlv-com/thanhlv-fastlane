@@ -1,6 +1,13 @@
-Manage multiple websites with isolated sessions and separate logins
+Session Browser helps you manage multiple websites with isolated sessions, making it easy to work with multiple accounts and switch workspaces quickly.
 
-Linux Highlights:
-• Packaged for Flatpak, Snap, and AppImage
-• Desktop environment compatible (GNOME, KDE Plasma, XFCE)
-• Native speed on x86_64 and ARM64 architectures
+Each website keeps its own state, reducing login conflicts and accidental account mix-ups. You can organize websites into folders, search instantly, and reorder items to keep your workflow clean.
+
+Key features:
+• Add, edit, duplicate, and delete websites
+• Folder grouping, drag-and-drop sorting, and fast search
+• Flexible display and navigation settings
+• Restore active workspace when reopening the app
+• Backup and restore workspace with JSON files
+• Download files directly from websites inside the app
+
+Session Browser is built for users who need clear, stable, and efficient multi-account web workflows.

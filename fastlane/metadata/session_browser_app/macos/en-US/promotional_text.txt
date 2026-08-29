@@ -1,1 +1,1 @@
-Optimized desktop experience crafted for macOS.
+Run multiple web accounts simultaneously in isolated sessions on macOS.

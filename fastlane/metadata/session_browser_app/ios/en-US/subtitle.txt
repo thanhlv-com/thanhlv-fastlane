@@ -1,1 +1,1 @@
-Isolated Session Browser
+Multi-Account Web Workspace

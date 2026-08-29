@@ -1,1 +1,1 @@
-Performance improvements and bug fixes.
+Initial release: isolated web sessions, folder grouping, backup & restore.

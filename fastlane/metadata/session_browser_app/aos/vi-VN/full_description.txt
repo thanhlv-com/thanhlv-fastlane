@@ -1,7 +1,13 @@
-Manage multiple websites with isolated sessions and separate logins
+Session Browser giúp bạn quản lý nhiều trang web với các phiên làm việc (session) riêng biệt, tách biệt hoàn toàn cookie và dữ liệu đăng nhập, giúp dễ dàng làm việc cùng lúc với nhiều tài khoản và chuyển đổi không gian làm việc nhanh chóng.
 
-Tính năng trên Android:
-• Quản lý tác vụ linh hoạt mọi lúc mọi nơi
-• Tương thích hoàn hảo với Android 10 trở lên
-• Tiết kiệm pin và tài nguyên hệ thống
-• Hỗ trợ chế độ Dark Mode
+Mỗi trang web duy trì trạng thái đăng nhập độc lập, loại bỏ hoàn toàn xung đột tài khoản. Bạn có thể sắp xếp các trang web theo thư mục, tìm kiếm tức thì và kéo thả sắp xếp danh sách một cách khoa học.
+
+Tính năng nổi bật:
+• Thêm, chỉnh sửa, nhân bản và xoá trang web dễ dàng
+• Gom nhóm theo thư mục, sắp xếp kéo thả và tìm kiếm nhanh chóng
+• Tuỳ biến giao diện và cài đặt điều hướng linh hoạt
+• Tự động khôi phục không gian làm việc đang mở khi khởi động lại
+• Sao lưu và khôi phục không gian làm việc qua tệp JSON
+• Tải tệp tin trực tiếp từ trang web ngay trong ứng dụng
+
+Session Browser là giải pháp tối ưu cho người dùng cần quản lý nhiều tài khoản web an toàn, tiện lợi và hiệu quả.

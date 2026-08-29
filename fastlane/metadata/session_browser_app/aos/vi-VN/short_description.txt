@@ -1,1 +1,1 @@
-Isolated Session Browser - Quản lý quy trình & tiện ích di động thông minh
+Duyệt web đa tài khoản với phiên làm việc và cookie riêng biệt.

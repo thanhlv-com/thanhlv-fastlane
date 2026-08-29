@@ -1,1 +1,1 @@
-Isolated Session Browser - Smart workflow management and utilities
+Manage multiple websites with isolated sessions and separate logins.

@@ -1,1 +1,1 @@
-windows, desktop, devops, productivity, thanhlv
+session,browser,multi-account,workspace,web,isolated,windows

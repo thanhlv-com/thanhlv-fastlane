@@ -1,1 +1,1 @@
-Isolated Session Browser for Linux Desktop
+Isolated Multi-Account Web Browser

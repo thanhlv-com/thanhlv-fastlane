@@ -1,1 +1,1 @@
-Official release for Windows desktop.
+Initial release for Windows desktop.

@@ -1,1 +1,1 @@
-macOS standalone application. No demo account needed.
+macOS standalone application. No special demo credentials required.
