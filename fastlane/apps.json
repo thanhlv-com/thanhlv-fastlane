@@ -32,9 +32,10 @@
     "git_url": "git@github.com:thanhlv-com/session_browser.git",
     "branch": "main",
     "platforms": [
+      "ios",
       "aos"
     ],
-    "bundle_id": "com.thanhlv.session_browser_app",
+    "bundle_id": "com.thanhlv.sessionbrowserapp",
     "package_name": "com.thanhlv.session_browser_app",
     "version": "1.0.0",
     "description": "Manage multiple websites with isolated sessions and separate logins"
