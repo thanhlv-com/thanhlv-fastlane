@@ -164,7 +164,7 @@ prepare-workspace:
 		echo "$(RED)❌ Vui lòng chỉ định app: make prepare-workspace APP=OpsFlow_Hub [REF=main] [FORCE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane prepare_workspace app:$(APP) ref:$${REF:-} force:$${FORCE:-false}
+	fastlane prepare_workspace app:$(APP) ref:$${REF:-} force:$${FORCE:-false}
 
 ## Dọn dẹp thư mục .workspace
 clean-workspace:
@@ -183,23 +183,23 @@ clean-workspace:
 
 ## Dọn dẹp certs local
 clean-certs:
-	@bundle exec fastlane clean_local_certs
+	fastlane clean_local_certs
 
 ## Dọn dẹp provisioning profiles local
 clean-profiles:
-	@bundle exec fastlane clean_local_profiles
+	fastlane clean_local_profiles
 
 ## Push App Store Connect API Key lên Match Git repo
 push-api-key:
-	@bundle exec fastlane push_api_key filepath:$${FILE:-} key_id:$${KEY_ID:-} issuer_id:$${ISSUER_ID:-}
+	fastlane push_api_key filepath:$${FILE:-} key_id:$${KEY_ID:-} issuer_id:$${ISSUER_ID:-}
 
 ## Đồng bộ certs qua Match cho iOS
 sync-certs-ios:
-	@bundle exec fastlane ios sync_certs app:$${APP:-} type:$${TYPE:-appstore} readonly:$${READONLY:-true}
+	fastlane ios sync_certs app:$${APP:-} type:$${TYPE:-appstore} readonly:$${READONLY:-true}
 
 ## Đồng bộ certs qua Match cho macOS
 sync-certs-mac:
-	@bundle exec fastlane mac sync_certs app:$${APP:-} type:$${TYPE:-appstore} readonly:$${READONLY:-true}
+	fastlane mac sync_certs app:$${APP:-} type:$${TYPE:-appstore} readonly:$${READONLY:-true}
 
 ## Đăng ký Bundle ID trên Apple Developer Portal cho iOS
 register-app-ios:
@@ -207,7 +207,7 @@ register-app-ios:
 		echo "$(RED)❌ Vui lòng chỉ định app: make register-app-ios APP=OpsFlow_Hub$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane ios register_app app:$(APP)
+	fastlane ios register_app app:$(APP)
 
 ## Đăng ký Bundle ID trên Apple Developer Portal cho macOS
 register-app-mac:
@@ -215,7 +215,7 @@ register-app-mac:
 		echo "$(RED)❌ Vui lòng chỉ định app: make register-app-mac APP=OpsFlow_Hub$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane mac register_app app:$(APP)
+	fastlane mac register_app app:$(APP)
 
 # ==============================================================================
 # 4. BUILD & DEPLOY CÁC NỀN TẢNG
@@ -227,14 +227,14 @@ ios-build:
 		echo "$(RED)❌ Vui lòng chỉ định app: make ios-build APP=OpsFlow_Hub [FLAVOR=...] [EXPORT_METHOD=app-store]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane ios build app:$(APP) flavor:$${FLAVOR:-} export_method:$${EXPORT_METHOD:-app-store}
+	fastlane ios build app:$(APP) flavor:$${FLAVOR:-} export_method:$${EXPORT_METHOD:-app-store}
 
 ios-deploy:
 	@if [ -z "$(APP)" ]; then \
 		echo "$(RED)❌ Vui lòng chỉ định app: make ios-deploy APP=OpsFlow_Hub [TARGET=testflight|appstore] [UPLOAD_METADATA=false]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane ios deploy app:$(APP) target:$${TARGET:-testflight} upload_metadata:$${UPLOAD_METADATA:-false} upload_screenshots:$${SCREENSHOTS:-false}
+	fastlane ios deploy app:$(APP) target:$${TARGET:-testflight} upload_metadata:$${UPLOAD_METADATA:-false} upload_screenshots:$${SCREENSHOTS:-false}
 
 # macOS
 mac-build:
@@ -242,14 +242,14 @@ mac-build:
 		echo "$(RED)❌ Vui lòng chỉ định app: make mac-build APP=OpsFlow_Hub [FLAVOR=...]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane mac build app:$(APP) flavor:$${FLAVOR:-}
+	fastlane mac build app:$(APP) flavor:$${FLAVOR:-}
 
 mac-deploy:
 	@if [ -z "$(APP)" ]; then \
 		echo "$(RED)❌ Vui lòng chỉ định app: make mac-deploy APP=OpsFlow_Hub [TARGET=testflight|appstore] [UPLOAD_METADATA=false]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane mac deploy app:$(APP) target:$${TARGET:-testflight} upload_metadata:$${UPLOAD_METADATA:-false} upload_screenshots:$${SCREENSHOTS:-false}
+	fastlane mac deploy app:$(APP) target:$${TARGET:-testflight} upload_metadata:$${UPLOAD_METADATA:-false} upload_screenshots:$${SCREENSHOTS:-false}
 
 # Android / AOS
 aos-build:
@@ -257,14 +257,14 @@ aos-build:
 		echo "$(RED)❌ Vui lòng chỉ định app: make aos-build APP=OpsFlow_Hub [TYPE=appbundle|apk]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane aos build app:$(APP) type:$${TYPE:-appbundle}
+	fastlane aos build app:$(APP) type:$${TYPE:-appbundle}
 
 aos-deploy:
 	@if [ -z "$(APP)" ]; then \
 		echo "$(RED)❌ Vui lòng chỉ định app: make aos-deploy APP=OpsFlow_Hub [TRACK=internal|alpha|beta|production]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane aos deploy app:$(APP) track:$${TRACK:-internal}
+	fastlane aos deploy app:$(APP) track:$${TRACK:-internal}
 
 # Windows & Linux (Desktop Placeholders / Offline Builds)
 windows-build:
@@ -272,14 +272,14 @@ windows-build:
 		echo "$(RED)❌ Vui lòng chỉ định app: make windows-build APP=OpsFlow_Hub$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane windows build app:$(APP)
+	fastlane windows build app:$(APP)
 
 linux-build:
 	@if [ -z "$(APP)" ]; then \
 		echo "$(RED)❌ Vui lòng chỉ định app: make linux-build APP=OpsFlow_Hub$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane linux build app:$(APP)
+	fastlane linux build app:$(APP)
 
 # ==============================================================================
 # 5. QUẢN LÝ & ĐỒNG BỘ 2 CHIỀU METADATA (PULL & PUSH)
@@ -291,7 +291,7 @@ metadata-init:
 		echo "$(RED)❌ Vui lòng chỉ định app: make metadata-init APP=OpsFlow_Hub [PLATFORM=all|ios|macos|aos|windows|linux]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane init_metadata app:$(APP) platform:$${PLATFORM:-all}
+	fastlane init_metadata app:$(APP) platform:$${PLATFORM:-all}
 
 ## Đẩy (Push) Metadata tổng quát
 metadata-push:
@@ -299,7 +299,7 @@ metadata-push:
 		echo "$(RED)❌ Vui lòng chỉ định app: make metadata-push APP=OpsFlow_Hub [PLATFORM=ios|macos|aos|windows|linux]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane push_metadata app:$(APP) platform:$${PLATFORM:-ios} version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false}
+	fastlane push_metadata app:$(APP) platform:$${PLATFORM:-ios} version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false}
 
 ## Tải (Pull) Metadata tổng quát
 metadata-pull:
@@ -307,7 +307,7 @@ metadata-pull:
 		echo "$(RED)❌ Vui lòng chỉ định app: make metadata-pull APP=OpsFlow_Hub [PLATFORM=ios|macos|aos]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane pull_metadata app:$(APP) platform:$${PLATFORM:-ios} skip_screenshots:$${SKIP_SCREENSHOTS:-false}
+	fastlane pull_metadata app:$(APP) platform:$${PLATFORM:-ios} skip_screenshots:$${SKIP_SCREENSHOTS:-false}
 
 # --- iOS (Apple App Store) ---
 ios-metadata-push:
@@ -315,7 +315,7 @@ ios-metadata-push:
 		echo "$(RED)❌ Vui lòng chỉ định app: make ios-metadata-push APP=OpsFlow_Hub [VERSION=1.0.0] [SCREENSHOTS=false] [SUBMIT=false]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane ios push_metadata app:$(APP) version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false}
+	fastlane ios push_metadata app:$(APP) version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false}
 
 ios-metadata-upload: ios-metadata-push
 
@@ -324,7 +324,7 @@ ios-metadata-pull:
 		echo "$(RED)❌ Vui lòng chỉ định app: make ios-metadata-pull APP=OpsFlow_Hub [SKIP_SCREENSHOTS=false]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane ios pull_metadata app:$(APP) skip_screenshots:$${SKIP_SCREENSHOTS:-false}
+	fastlane ios pull_metadata app:$(APP) skip_screenshots:$${SKIP_SCREENSHOTS:-false}
 
 ios-metadata-download: ios-metadata-pull
 
@@ -334,7 +334,7 @@ mac-metadata-push:
 		echo "$(RED)❌ Vui lòng chỉ định app: make mac-metadata-push APP=OpsFlow_Hub [VERSION=1.0.0] [SCREENSHOTS=false] [SUBMIT=false]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane mac push_metadata app:$(APP) version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false}
+	fastlane mac push_metadata app:$(APP) version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false}
 
 mac-metadata-upload: mac-metadata-push
 
@@ -343,7 +343,7 @@ mac-metadata-pull:
 		echo "$(RED)❌ Vui lòng chỉ định app: make mac-metadata-pull APP=OpsFlow_Hub [SKIP_SCREENSHOTS=false]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane mac pull_metadata app:$(APP) skip_screenshots:$${SKIP_SCREENSHOTS:-false}
+	fastlane mac pull_metadata app:$(APP) skip_screenshots:$${SKIP_SCREENSHOTS:-false}
 
 mac-metadata-download: mac-metadata-pull
 
@@ -353,7 +353,7 @@ aos-metadata-push:
 		echo "$(RED)❌ Vui lòng chỉ định app: make aos-metadata-push APP=OpsFlow_Hub [SCREENSHOTS=false]$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane aos push_metadata app:$(APP) upload_screenshots:$${SCREENSHOTS:-false}
+	fastlane aos push_metadata app:$(APP) upload_screenshots:$${SCREENSHOTS:-false}
 
 aos-metadata-upload: aos-metadata-push
 
@@ -362,7 +362,7 @@ aos-metadata-pull:
 		echo "$(RED)❌ Vui lòng chỉ định app: make aos-metadata-pull APP=OpsFlow_Hub$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane aos pull_metadata app:$(APP)
+	fastlane aos pull_metadata app:$(APP)
 
 aos-metadata-download: aos-metadata-pull
 
@@ -372,7 +372,7 @@ windows-metadata-push:
 		echo "$(RED)❌ Vui lòng chỉ định app: make windows-metadata-push APP=OpsFlow_Hub$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane windows upload_metadata app:$(APP)
+	fastlane windows upload_metadata app:$(APP)
 
 windows-metadata-upload: windows-metadata-push
 
@@ -382,6 +382,6 @@ linux-metadata-push:
 		echo "$(RED)❌ Vui lòng chỉ định app: make linux-metadata-push APP=OpsFlow_Hub$(RESET)"; \
 		exit 1; \
 	fi
-	@bundle exec fastlane linux upload_metadata app:$(APP)
+	fastlane linux upload_metadata app:$(APP)
 
 linux-metadata-upload: linux-metadata-push
