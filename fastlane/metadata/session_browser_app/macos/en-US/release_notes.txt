@@ -1,1 +1,1 @@
-Official release for macOS. Manage multi-account workflows with ease.
+

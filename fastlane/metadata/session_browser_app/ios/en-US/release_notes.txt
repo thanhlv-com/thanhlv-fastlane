@@ -1,1 +1,1 @@
-Initial release of Session Browser. Easily manage multi-account web workspaces with isolated sessions.
+

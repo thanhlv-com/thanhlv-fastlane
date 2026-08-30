@@ -1,1 +1,1 @@
-Isolated Multi-Account Browser
+Multi-Account Web Workspace

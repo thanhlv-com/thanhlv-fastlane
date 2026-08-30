@@ -1,1 +1,1 @@
-Run multiple web accounts simultaneously in isolated sessions on macOS.
+

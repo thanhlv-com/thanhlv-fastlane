@@ -1,1 +1,1 @@
-Bản phát hành đầu tiên của Session Browser. Hỗ trợ quản lý web đa tài khoản với session riêng biệt.
+
