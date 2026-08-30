@@ -1,1 +1,1 @@
-
+Bản phát hành đầu tiên: Quản lý phiên web riêng biệt, gom nhóm thư mục và sao lưu khôi phục.

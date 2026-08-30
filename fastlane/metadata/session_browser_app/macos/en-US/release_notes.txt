@@ -1,1 +1,1 @@
-
+Official release for macOS. Isolated web sessions, folder grouping, backup & restore.

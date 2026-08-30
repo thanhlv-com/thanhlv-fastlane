@@ -1,1 +1,1 @@
-
+Manage multiple accounts with isolated sessions and dedicated workspaces on macOS.
