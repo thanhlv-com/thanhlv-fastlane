@@ -40,5 +40,19 @@
     "package_name": "com.thanhlv.session_browser_app",
     "version": "1.0.0",
     "description": "Manage multiple websites with isolated sessions and separate logins"
+  },
+  "app_github_pro": {
+    "app_name": "Github Pro",
+    "git_url": "git@github.com:thanhlv-com/app-github-pro.git",
+    "branch": "main",
+    "platforms": [
+      "ios",
+      "macos",
+      "aos"
+    ],
+    "bundle_id": "com.thanhlv.githubpro",
+    "package_name": "com.thanhlv.githubpro",
+    "version": "1.0.0",
+    "description": "GitPro is a high-performance developer client designed to bring the complete power of GitHub to your mobile device."
   }
 }
