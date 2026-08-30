@@ -2,7 +2,7 @@ GitPro is a high-performance developer client designed to bring the complete pow
 
 Engineered with Clean Architecture and a Two-Tier Smart Caching engine, GitPro delivers instantaneous 0ms responses, giving power users and engineering teams complete control over their software development lifecycle on the go.
 
-🚀 KEY FEATURES:
+KEY FEATURES:
 
 1. REPOSITORY EXPLORER & CODE VIEWER
 • Navigate Git Trees effortlessly with deep breadcrumb navigation.
@@ -44,8 +44,8 @@ Engineered with Clean Architecture and a Two-Tier Smart Caching engine, GitPro d
 • Interactive 52-week Contribution Heatmap and developer profile stats.
 
 ---
-🔒 PRIVACY & SECURITY:
+PRIVACY & SECURITY:
 Your tokens and credentials are encrypted securely on-device using hardware-backed keystores. Network calls communicate directly with GitHub / GHES APIs with zero middleman servers.
 
-📌 DISCLAIMER:
+DISCLAIMER:
 GitPro is a third-party application and is not affiliated with, endorsed, or sponsored by GitHub, Inc. or Microsoft Corporation.
