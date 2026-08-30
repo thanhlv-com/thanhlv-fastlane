@@ -42,7 +42,7 @@
     "description": "Manage multiple websites with isolated sessions and separate logins"
   },
   "app_github_pro": {
-    "app_name": "GitPro - Client for GitHub",
+    "app_name": "Github Pro - Client for GitHub",
     "git_url": "git@github.com:thanhlv-com/app-github-pro.git",
     "branch": "main",
     "platforms": [

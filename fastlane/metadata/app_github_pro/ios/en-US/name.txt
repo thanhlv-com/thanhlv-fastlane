@@ -1,1 +1,1 @@
-GitPro - Client for GitHub
+Github Pro - Client for GitHub
