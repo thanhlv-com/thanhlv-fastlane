@@ -1,1 +1,51 @@
+GitPro is a high-performance developer client designed to bring the complete power of GitHub to your mobile device.
 
+Engineered with Clean Architecture and a Two-Tier Smart Caching engine, GitPro delivers instantaneous 0ms responses, giving power users and engineering teams complete control over their software development lifecycle on the go.
+
+🚀 KEY FEATURES:
+
+1. REPOSITORY EXPLORER & CODE VIEWER
+• Navigate Git Trees effortlessly with deep breadcrumb navigation.
+• Rich syntax highlighting for over 100+ programming languages.
+• Inspect commit history, commit changes, and Git Blame line by line.
+
+2. ADVANCED CODE REVIEW & PULL REQUESTS
+• 4-tab workflow: Conversation, Commits, CI Checks, and Files Changed.
+• Visual Git Diff viewer with split/unified side-by-side inspection.
+• Full review workflow: Submit inline comments, approve, or request changes.
+• One-tap PR merge engine: Merge commit, Squash, and Rebase.
+• Manage Assignees, Reviewers, Labels, and Milestones.
+
+3. GITHUB ACTIONS & CI/CD ORCHESTRATION
+• Real-time monitoring of workflow runs and status checks.
+• Trigger manual workflow dispatches with dynamic input parameters.
+• Inspect live and raw step logs to troubleshoot pipeline failures instantly.
+
+4. MOBILE CODE EDITOR & DIRECT COMMITS
+• Edit code files directly with gutter line numbers and dev toolbar shortcuts.
+• Create Git commits directly to branches or draft new Pull Requests.
+
+5. SMART NOTIFICATIONS INBOX
+• Triage notifications categorized by @mentions, review requests, and CI status.
+• Fast repository filtering, one-tap mark-as-read, and unsubscribe.
+
+6. SECURITY CENTER & REPO ANALYTICS
+• Proactive security audits: Dependabot alerts, Secret Scanning, and CodeQL.
+• Repository Insights: 14-day Views & Clones traffic charts, Pulse, and Contributor Leaderboards.
+
+7. MULTI-ACCOUNT & GITHUB ENTERPRISE (GHES)
+• Secure authentication via OAuth 2.0 PKCE and Personal Access Tokens (PAT).
+• Seamlessly switch between personal, organizational, and custom GitHub Enterprise Server instances.
+
+8. PROJECTS, DISCUSSIONS & GISTS
+• GitHub Projects v2 Kanban board with interactive card management.
+• Community Discussions with Q&A threads, nested replies, and upvotes.
+• Multi-file Gist manager and snippet repository.
+• Interactive 52-week Contribution Heatmap and developer profile stats.
+
+---
+🔒 PRIVACY & SECURITY:
+Your tokens and credentials are encrypted securely on-device using hardware-backed keystores. Network calls communicate directly with GitHub / GHES APIs with zero middleman servers.
+
+📌 DISCLAIMER:
+GitPro is a third-party application and is not affiliated with, endorsed, or sponsored by GitHub, Inc. or Microsoft Corporation.
