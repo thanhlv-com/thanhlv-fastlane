@@ -3,7 +3,7 @@
 # Repository: thanhlv-fastlane
 # ==============================================================================
 
-.PHONY: help \
+.PHONY: help menu run cli interactive \
         sync-workflows sync check-workflows check validate check-apps check-syntax check-all \
         install prepare-workspace clean-workspace \
         clean-certs clean-profiles push-api-key sync-certs-ios sync-certs-mac register-app-ios register-app-mac \
@@ -27,12 +27,25 @@ BOLD    := \033[1m
 # Target mặc định
 .DEFAULT_GOAL := help
 
+## Giao diện dòng lệnh tương tác (Menu CLI)
+menu:
+	@ruby scripts/interactive_menu.rb
+
+run: menu
+cli: menu
+interactive: menu
+
 ## Hiển thị toàn bộ danh sách lệnh được hỗ trợ
 help:
 	@echo ""
 	@echo "$(BOLD)$(CYAN)====================================================================$(RESET)"
 	@echo "$(BOLD)$(CYAN)           THANHLV FASTLANE CI/CD MANAGEMENT TOOLKIT               $(RESET)"
 	@echo "$(BOLD)$(CYAN)====================================================================$(RESET)"
+	@echo ""
+	@echo "$(BOLD)$(GREEN)⚡ GIAO DIỆN TƯƠNG TÁC (CHỌN APP & PARAM TỰ ĐỘNG):$(RESET)"
+	@echo "  $(BOLD)$(CYAN)make menu$(RESET) (hoặc $(BOLD)$(CYAN)make run$(RESET) / $(BOLD)$(CYAN)./menu.sh$(RESET))"
+	@echo "      $(BOLD)Mở Menu tương tác CLI: Tự động quét apps.json, cho chọn App & Tham số trực quan,$(RESET)"
+	@echo "      $(BOLD)không cần phải nhớ cú pháp hoặc gõ tay tham số.$(RESET)"
 	@echo ""
 	@echo "$(BOLD)$(YELLOW)🎯 1. QUẢN LÝ GITHUB ACTIONS WORKFLOWS:$(RESET)"
 	@echo "  $(GREEN)make sync-workflows$(RESET) (hoặc $(GREEN)make sync$(RESET))"

@@ -33,6 +33,7 @@
     "branch": "main",
     "platforms": [
       "ios",
+      "macos",
       "aos"
     ],
     "bundle_id": "com.thanhlv.sessionbrowserapp",

@@ -11,6 +11,7 @@ on:
         options:
           - "all"
           - "OpsFlow_Hub"
+          - "session_browser_app"
       action:
         description: "Hành động thực hiện"
         required: true
