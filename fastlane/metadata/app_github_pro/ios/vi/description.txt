@@ -2,7 +2,7 @@ GitPro là ứng dụng di động cao cấp dành cho lập trình viên và k�
 
 Được xây dựng với kiến trúc tối ưu hiệu năng và hệ thống Smart Cache 2 tầng, GitPro mang đến tốc độ phản hồi tức thì 0ms, hỗ trợ đầy đủ các tính năng nâng cao mà lập trình viên chuyên nghiệp cần mỗi ngày.
 
-🚀 CÁC TÍNH NĂNG NỔI BẬT:
+CÁC TÍNH NĂNG NỔI BẬT:
 
 1. QUẢN LÝ REPOSITORY & XEM CODE CHUYÊN SÂU
 • Duyệt cây thư mục Git (Git Tree) với Breadcrumb điều hướng đa tầng mượt mà.
@@ -44,8 +44,8 @@ GitPro là ứng dụng di động cao cấp dành cho lập trình viên và k�
 • Contribution Heatmap 52 tuần và hồ sơ lập trình viên tương tác.
 
 ---
-🔒 BẢO MẬT & QUYỀN RIÊNG TƯ:
+BẢO MẬT & QUYỀN RIÊNG TƯ:
 GitPro lưu trữ thông tin xác thực an toàn tuyệt đối trong Keychain / Encrypted Storage của thiết bị. Mọi kết nối API được truyền trực tiếp đến GitHub API hoặc máy chủ GHES của bạn, không thông qua máy chủ trung gian thu thập dữ liệu.
 
-📌 TUYÊN BỐ MIỄN TRỪ TRÁCH NHIỆM:
+TUYÊN BỐ MIỄN TRỪ TRÁCH NHIỆM:
 GitPro là một ứng dụng độc lập của bên thứ ba được phát triển cho GitHub. Ứng dụng này không có mối liên kết, không được chứng thực hoặc tài trợ chính thức bởi GitHub, Inc. hoặc Microsoft Corporation.
