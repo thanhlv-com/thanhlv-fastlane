@@ -13,6 +13,7 @@ on:
           - "OpsFlow_Hub"
           - "app-remove-app"
           - "session_browser_app"
+          - "app_github_pro"
       action:
         description: "Hành động thực hiện"
         required: true

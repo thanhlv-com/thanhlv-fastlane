@@ -13,6 +13,7 @@ on:
           - "OpsFlow_Hub"
           - "app-remove-app"
           - "session_browser_app"
+          - "app_github_pro"
       platform:
         description: "Nền tảng mục tiêu"
         required: true
