@@ -97,9 +97,9 @@ def init_ios_metadata_template(target_dir, app_name, description, locales = ["en
       "keywords.txt" => is_vi ? "cong cu, devops, tien ich, tu dong hoa, thanhlv" : "tools, devops, utility, automation, thanhlv",
       "promotional_text.txt" => is_vi ? "Trải nghiệm bộ công cụ hiện đại và tiện lợi." : "Experience a modern and efficient toolkit.",
       "release_notes.txt" => is_vi ? "Cập nhật tính năng và cải thiện hiệu năng cho iOS." : "Feature updates and performance improvements for iOS.",
-      "support_url.txt" => "https://thanhlv.com/support",
-      "marketing_url.txt" => "https://thanhlv.com",
-      "privacy_url.txt" => "https://thanhlv.com/privacy-policy"
+      "support_url.txt" => "https://facebook.com/lethanh9398",
+      "marketing_url.txt" => "https://facebook.com/lethanh9398",
+      "privacy_url.txt" => "https://static-cdn.thanhlv.com/html/app/privacy.html"
     }
 
     files.each do |filename, content|
@@ -156,9 +156,9 @@ def init_macos_metadata_template(target_dir, app_name, description, locales = ["
       "keywords.txt" => is_vi ? "macos, devops, mac app, tien ich, thanhlv" : "macos, devops, mac app, desktop utility, thanhlv",
       "promotional_text.txt" => is_vi ? "Phiên bản tối ưu hoá dành riêng cho máy Mac." : "Optimized desktop experience crafted for macOS.",
       "release_notes.txt" => is_vi ? "Phát hành bản cập nhật mới nhất trên macOS." : "Latest release and enhancements for macOS.",
-      "support_url.txt" => "https://thanhlv.com/support",
-      "marketing_url.txt" => "https://thanhlv.com",
-      "privacy_url.txt" => "https://thanhlv.com/privacy-policy"
+      "support_url.txt" => "https://facebook.com/lethanh9398",
+      "marketing_url.txt" => "https://facebook.com/lethanh9398",
+      "privacy_url.txt" => "https://static-cdn.thanhlv.com/html/app/privacy.html"
     }
 
     files.each do |filename, content|
@@ -232,7 +232,7 @@ def init_aos_metadata_template(target_dir, app_name, description, locales = ["en
     "contact_email.txt" => "contact@thanhlv.com",
     "contact_website.txt" => "https://thanhlv.com",
     "contact_phone.txt" => "+84900000000",
-    "privacy_policy.txt" => "https://thanhlv.com/privacy-policy"
+    "privacy_policy.txt" => "https://static-cdn.thanhlv.com/html/app/privacy.html"
   }
   general_files.each do |filename, content|
     file_path = File.join(target_dir, filename)
@@ -267,8 +267,8 @@ def init_windows_metadata_template(target_dir, app_name, description, locales = 
         "#{description}\n\nTính năng trên Windows:\n• Tương thích Windows 10 & Windows 11\n• Hỗ trợ giao diện Fluent Design hiện đại\n• Tích hợp Windows Notifications và System Tray" :
         "#{description}\n\nWindows Highlights:\n• Built for Windows 10 and Windows 11\n• Modern Fluent Design UI\n• Native system tray and notification support",
       "release_notes.txt" => is_vi ? "Bản phát hành chính thức trên Windows." : "Official release for Windows desktop.",
-      "support_url.txt" => "https://thanhlv.com/support",
-      "privacy_url.txt" => "https://thanhlv.com/privacy-policy",
+      "support_url.txt" => "https://facebook.com/lethanh9398",
+      "privacy_url.txt" => "https://static-cdn.thanhlv.com/html/app/privacy.html",
       "keywords.txt" => "windows, desktop, devops, productivity, thanhlv"
     }
 
@@ -322,7 +322,7 @@ def init_linux_metadata_template(target_dir, app_name, description, locales = ["
     "project_license.txt" => "MIT",
     "developer_name.txt" => "Thanh Le",
     "url_homepage.txt" => "https://thanhlv.com",
-    "url_help.txt" => "https://thanhlv.com/support",
+    "url_help.txt" => "https://facebook.com/lethanh9398",
     "url_bugtracker.txt" => "https://github.com/thanhlv-com"
   }
   general_files.each do |filename, content|
