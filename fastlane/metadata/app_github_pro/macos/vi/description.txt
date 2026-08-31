@@ -1,6 +1,6 @@
-GitPro là ứng dụng di động cao cấp dành cho lập trình viên và kỹ sư phần mềm, mang lại trải nghiệm quản lý mã nguồn và điều hành dự án GitHub toàn diện ngay trên điện thoại.
+Git+ là ứng dụng độc lập dành cho lập trình viên và kỹ sư phần mềm, mang lại trải nghiệm quản lý mã nguồn và điều hành dự án GitHub toàn diện ngay trên thiết bị của bạn.
 
-Được xây dựng với kiến trúc tối ưu hiệu năng và hệ thống Smart Cache 2 tầng, GitPro mang đến tốc độ phản hồi tức thì 0ms, hỗ trợ đầy đủ các tính năng nâng cao mà lập trình viên chuyên nghiệp cần mỗi ngày.
+Được xây dựng với kiến trúc tối ưu hiệu năng và hệ thống Smart Cache 2 tầng, Git+ mang đến tốc độ phản hồi tức thì 0ms, hỗ trợ đầy đủ các tính năng nâng cao mà lập trình viên chuyên nghiệp cần mỗi ngày.
 
 CÁC TÍNH NĂNG NỔI BẬT:
 
@@ -45,7 +45,7 @@ CÁC TÍNH NĂNG NỔI BẬT:
 
 ---
 BẢO MẬT & QUYỀN RIÊNG TƯ:
-GitPro lưu trữ thông tin xác thực an toàn tuyệt đối trong Keychain / Encrypted Storage của thiết bị. Mọi kết nối API được truyền trực tiếp đến GitHub API hoặc máy chủ GHES của bạn, không thông qua máy chủ trung gian thu thập dữ liệu.
+Git+ lưu trữ thông tin xác thực an toàn tuyệt đối trong Keychain / Encrypted Storage của thiết bị. Mọi kết nối API được truyền trực tiếp đến GitHub API hoặc máy chủ GHES của bạn, không thông qua máy chủ trung gian thu thập dữ liệu.
 
 TUYÊN BỐ MIỄN TRỪ TRÁCH NHIỆM:
-GitPro là một ứng dụng độc lập của bên thứ ba được phát triển cho GitHub. Ứng dụng này không có mối liên kết, không được chứng thực hoặc tài trợ chính thức bởi GitHub, Inc. hoặc Microsoft Corporation.
+Git+ là một ứng dụng độc lập của bên thứ ba được phát triển cho GitHub. Ứng dụng này không có mối liên kết, không được chứng thực hoặc tài trợ chính thức bởi GitHub, Inc. hoặc Microsoft Corporation. GitHub và logo GitHub là các thương hiệu đã được đăng ký của GitHub, Inc.

@@ -42,7 +42,7 @@
     "description": "Manage multiple websites with isolated sessions and separate logins"
   },
   "app_github_pro": {
-    "app_name": "Github Pro - Client for GitHub",
+    "app_name": "Git+ for GitHub",
     "git_url": "git@github.com:thanhlv-com/app-github-pro.git",
     "branch": "main",
     "platforms": [
@@ -53,6 +53,6 @@
     "bundle_id": "com.thanhlv.githubpro",
     "package_name": "com.thanhlv.githubpro",
     "version": "1.0.0",
-    "description": "GitPro is a high-performance developer client designed to bring the complete power of GitHub to your mobile device."
+    "description": "Git+ is a high-performance developer client designed to bring the complete power of GitHub to your mobile device."
   }
 }

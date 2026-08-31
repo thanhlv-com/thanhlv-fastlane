@@ -1,6 +1,6 @@
-GitPro is a high-performance developer client designed to bring the complete power of GitHub to your mobile device.
+Git+ is an independent, high-performance developer client designed to manage your GitHub repositories, code reviews, and CI/CD workflows on the go.
 
-Engineered with Clean Architecture and a Two-Tier Smart Caching engine, GitPro delivers instantaneous 0ms responses, giving power users and engineering teams complete control over their software development lifecycle on the go.
+Engineered with Clean Architecture and a Two-Tier Smart Caching engine, Git+ delivers instantaneous 0ms responses, giving power users and engineering teams complete control over their software development lifecycle.
 
 KEY FEATURES:
 
@@ -48,4 +48,4 @@ PRIVACY & SECURITY:
 Your tokens and credentials are encrypted securely on-device using hardware-backed keystores. Network calls communicate directly with GitHub / GHES APIs with zero middleman servers.
 
 DISCLAIMER:
-GitPro is a third-party application and is not affiliated with, endorsed, or sponsored by GitHub, Inc. or Microsoft Corporation.
+Git+ is an independent third-party developer tool and is not affiliated with, endorsed, or sponsored by GitHub, Inc. or Microsoft Corporation. GitHub and the GitHub logo are trademarks of GitHub, Inc.

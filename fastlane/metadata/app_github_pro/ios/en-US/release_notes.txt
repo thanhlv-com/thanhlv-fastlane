@@ -1,4 +1,4 @@
-Welcome to the initial release of GitPro!
+Welcome to the initial release of Git+!
 • Instant login via OAuth 2.0 PKCE & Personal Access Tokens (PAT).
 • Rich syntax-highlighted code viewer & Git tree explorer.
 • Comprehensive Pull Request reviews with inline comments & diffs.

@@ -1,1 +1,3 @@
-GitPro is a client for GitHub. Users can sign in using their own GitHub account via OAuth 2.0 PKCE or Personal Access Token (PAT). Public features and public repositories can be explored without login.
+Git+ is an independent, third-party client for GitHub. Users can sign in using their own GitHub account via OAuth 2.0 PKCE or Personal Access Token (PAT). Public features and public repositories can be explored without login.
+
+GITHUB PAT for test and review:

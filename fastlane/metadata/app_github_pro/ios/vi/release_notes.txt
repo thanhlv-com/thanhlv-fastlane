@@ -1,4 +1,4 @@
-Chào mừng bạn đến với phiên bản đầu tiên của GitPro!
+Chào mừng bạn đến với phiên bản đầu tiên của Git+!
 • Đăng nhập nhanh qua OAuth PKCE & Personal Access Token.
 • Xem code với tô màu cú pháp và duyệt Git Tree mượt mà.
 • Review Pull Request chuyên sâu với Git Diff & bình luận inline.
