@@ -1,1 +1,0 @@
-Duyệt web đa tài khoản với phiên làm việc và cookie riêng biệt.

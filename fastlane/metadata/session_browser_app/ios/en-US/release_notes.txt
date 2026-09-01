@@ -1,1 +1,0 @@
-Initial release of Session Browser for iOS. Isolated web sessions, folder grouping, backup & restore.

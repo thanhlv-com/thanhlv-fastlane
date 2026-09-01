@@ -1,1 +1,0 @@
-Quản lý nhiều tài khoản web với phiên làm việc độc lập và không gian riêng.
