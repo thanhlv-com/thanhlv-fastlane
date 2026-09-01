@@ -1,1 +1,0 @@
-Trải nghiệm quản lý GitHub cao cấp trên macOS: Duyệt code, review PR, kích hoạt GitHub Actions và hỗ trợ GitHub Enterprise Server với tốc độ tức thì.

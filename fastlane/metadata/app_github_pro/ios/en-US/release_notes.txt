@@ -1,6 +1,0 @@
-Welcome to the initial release of Git+!
-• Instant login via OAuth 2.0 PKCE & Personal Access Tokens (PAT).
-• Rich syntax-highlighted code viewer & Git tree explorer.
-• Comprehensive Pull Request reviews with inline comments & diffs.
-• Real-time GitHub Actions CI/CD runs & manual workflow dispatches.
-• Support for GitHub Enterprise Server, Projects v2, Gists, and Discussions.

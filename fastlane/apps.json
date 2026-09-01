@@ -54,5 +54,18 @@
     "package_name": "com.thanhlv.githubpro",
     "version": "1.0.0",
     "description": "Git+ is a high-performance developer client designed to bring the complete power of GitHub to your mobile device."
+  },
+  "app_Lam_Toan_Tre_Con": {
+    "app_name": "Git+ for GitHub",
+    "git_url": "git@github.com:thanhlv-com/app-lam-toan-tre-con.git",
+    "branch": "main",
+    "platforms": [
+      "ios",
+      "aos"
+    ],
+    "bundle_id": "com.thanhlv.lamtoantrecon",
+    "package_name": "com.thanhlv.lamtoantrecon",
+    "version": "1.0.0",
+    "description": "App làm toán trẻ con"
   }
 }
