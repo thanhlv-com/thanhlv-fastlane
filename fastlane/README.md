@@ -430,6 +430,14 @@ Khởi tạo thư mục và các file Metadata template mẫu cho Windows app
 
 Kiểm tra và chuẩn bị Metadata Windows cho phát hành
 
+### windows push_metadata
+
+```sh
+[bundle exec] fastlane windows push_metadata
+```
+
+Cập nhật Metadata Windows (alias: upload_metadata)
+
 ### windows build
 
 ```sh
@@ -458,6 +466,14 @@ Khởi tạo thư mục và các file Metadata template mẫu cho Linux app
 ```
 
 Kiểm tra và chuẩn bị Metadata Linux cho phát hành (AppStream / Metainfo)
+
+### linux push_metadata
+
+```sh
+[bundle exec] fastlane linux push_metadata
+```
+
+Cập nhật Metadata Linux (alias: upload_metadata)
 
 ### linux build
 

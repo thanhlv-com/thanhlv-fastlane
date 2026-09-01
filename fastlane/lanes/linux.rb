@@ -19,6 +19,11 @@ platform :linux do
     upload_app_metadata_to_store(app_key, "linux", options)
   end
 
+  desc "Cập nhật Metadata Linux (alias: upload_metadata)"
+  lane :push_metadata do |options|
+    upload_metadata(options)
+  end
+
   desc "Build Flutter Linux Release Executable / Bundle"
   lane :build do |options|
     app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane linux build app:OpsFlow_Hub")

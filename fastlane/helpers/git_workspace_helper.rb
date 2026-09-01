@@ -141,6 +141,11 @@ end
 
 # Thực thi lệnh Flutter trong thư mục workspace với môi trường sạch
 def run_flutter_cmd(command, working_dir)
+  unless system("which flutter > /dev/null 2>&1")
+    UI.important("⚠️ Không tìm thấy lệnh 'flutter' trong PATH. Bỏ qua lệnh: #{command}")
+    return false
+  end
+
   clean_cmd = "env -u GEM_HOME -u GEM_PATH -u BUNDLE_BIN_PATH -u BUNDLE_GEMFILE -u RUBYOPT #{command}"
   full_cmd = "cd \"#{working_dir}\" && #{clean_cmd}"
 

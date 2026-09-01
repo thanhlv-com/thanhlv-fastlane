@@ -1,1 +1,0 @@
-session,browser,multi account,workspace,web,login,isolated,cookies,tabs,profile,mac

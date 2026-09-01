@@ -19,6 +19,11 @@ platform :windows do
     upload_app_metadata_to_store(app_key, "windows", options)
   end
 
+  desc "Cập nhật Metadata Windows (alias: upload_metadata)"
+  lane :push_metadata do |options|
+    upload_metadata(options)
+  end
+
   desc "Build Flutter Windows Release Executable (.exe / .zip)"
   lane :build do |options|
     app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane windows build app:OpsFlow_Hub")

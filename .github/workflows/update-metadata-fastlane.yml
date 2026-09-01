@@ -211,5 +211,6 @@ jobs:
           name: multiplatform-metadata
           path: |
             fastlane/metadata/
+            .workspace/*/metadata/
           if-no-files-found: ignore
           retention-days: 14

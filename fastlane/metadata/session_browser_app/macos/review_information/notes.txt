@@ -1,1 +1,0 @@
-macOS standalone application. Session Browser does not require special credentials. All web browsing features are available without login.
