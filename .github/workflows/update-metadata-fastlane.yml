@@ -14,6 +14,7 @@ on:
           - "app-remove-app"
           - "session_browser_app"
           - "app_github_pro"
+          - "app_Lam_Toan_Tre_Con"
       platform:
         description: "Nền tảng mục tiêu"
         required: true
