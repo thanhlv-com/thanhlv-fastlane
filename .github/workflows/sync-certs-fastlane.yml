@@ -23,6 +23,7 @@ on:
           - "session_browser_app"
           - "app_github_pro"
           - "app_Lam_Toan_Tre_Con"
+          - "app-snapvid"
       type:
         description: "Loại Certificate / Profile"
         required: true

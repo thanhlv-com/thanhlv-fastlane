@@ -67,5 +67,18 @@
     "package_name": "com.thanhlv.lamtoantrecon",
     "version": "1.0.0",
     "description": "App làm toán trẻ con"
+  },
+  "app-snapvid": {
+    "app_name": "FrameSnap: Video to Photo",
+    "git_url": "git@github.com:thanhlv-com/app-snapvid.git",
+    "branch": "main",
+    "platforms": [
+      "ios",
+      "aos"
+    ],
+    "bundle_id": "com.thanhlv.snapvid",
+    "package_name": "com.thanhlv.snapvid",
+    "version": "1.0.0",
+    "description": "FrameSnap: Video to Photo"
   }
 }
