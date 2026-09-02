@@ -184,7 +184,7 @@ def init_ios_metadata_template(target_dir, app_name, description, locales = ["en
   review_files = {
     "first_name.txt" => "Thanh",
     "last_name.txt" => "Le",
-    "phone_number.txt" => "+84900000000",
+    "phone_number.txt" => "+84966211618",
     "email_address.txt" => "contact@thanhlv.com",
     "notes.txt" => "No special login required. iOS app is ready for full testing."
   }
@@ -243,7 +243,7 @@ def init_macos_metadata_template(target_dir, app_name, description, locales = ["
   review_files = {
     "first_name.txt" => "Thanh",
     "last_name.txt" => "Le",
-    "phone_number.txt" => "+84900000000",
+    "phone_number.txt" => "+84966211618",
     "email_address.txt" => "contact@thanhlv.com",
     "notes.txt" => "macOS standalone application. No demo account needed."
   }
@@ -292,7 +292,7 @@ def init_aos_metadata_template(target_dir, app_name, description, locales = ["en
   general_files = {
     "contact_email.txt" => "contact@thanhlv.com",
     "contact_website.txt" => "https://thanhlv.com",
-    "contact_phone.txt" => "+84900000000",
+    "contact_phone.txt" => "+84966211618",
     "privacy_policy.txt" => "https://static-cdn.thanhlv.com/html/app/privacy.html"
   }
   general_files.each do |filename, content|
