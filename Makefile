@@ -87,11 +87,11 @@ help:
 	@echo "      Khởi tạo bộ thư mục metadata & screenshots mẫu chuẩn hoá cho app."
 	@echo "  $(GREEN)make ios-metadata-pull APP=<app_key> [SKIP_SCREENSHOTS=false]$(RESET)"
 	@echo "      Tải (Pull) Metadata & Screenshots từ App Store về local để chỉnh sửa."
-	@echo "  $(GREEN)make ios-metadata-push APP=<app_key> [VERSION=1.0.0] [SCREENSHOTS=false] [SUBMIT=false]$(RESET)"
+	@echo "  $(GREEN)make ios-metadata-push APP=<app_key> [VERSION=1.0.0] [SCREENSHOTS=false] [SUBMIT=false] [OVERWRITE=true]$(RESET)"
 	@echo "      Đẩy (Push) Metadata & Screenshots từ local lên App Store Connect."
 	@echo "  $(GREEN)make mac-metadata-pull APP=<app_key> [SKIP_SCREENSHOTS=false]$(RESET)"
 	@echo "      Tải (Pull) Metadata & Screenshots từ Mac App Store về local để chỉnh sửa."
-	@echo "  $(GREEN)make mac-metadata-push APP=<app_key> [VERSION=1.0.0] [SCREENSHOTS=false] [SUBMIT=false]$(RESET)"
+	@echo "  $(GREEN)make mac-metadata-push APP=<app_key> [VERSION=1.0.0] [SCREENSHOTS=false] [SUBMIT=false] [OVERWRITE=true]$(RESET)"
 	@echo "      Đẩy (Push) Metadata & Screenshots từ local lên Mac App Store."
 	@echo "  $(GREEN)make aos-metadata-pull APP=<app_key>$(RESET)"
 	@echo "      Tải (Pull) Metadata & Changelogs từ Google Play về local."
@@ -296,10 +296,10 @@ metadata-init:
 ## Đẩy (Push) Metadata tổng quát
 metadata-push:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make metadata-push APP=OpsFlow_Hub [PLATFORM=ios|macos|aos|windows|linux]$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make metadata-push APP=OpsFlow_Hub [PLATFORM=ios|macos|aos|windows|linux] [OVERWRITE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane push_metadata app:$(APP) platform:$${PLATFORM:-ios} version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false}
+	fastlane push_metadata app:$(APP) platform:$${PLATFORM:-ios} version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false} overwrite_screenshots:$${OVERWRITE:-true}
 
 ## Tải (Pull) Metadata tổng quát
 metadata-pull:
@@ -312,10 +312,10 @@ metadata-pull:
 # --- iOS (Apple App Store) ---
 ios-metadata-push:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make ios-metadata-push APP=OpsFlow_Hub [VERSION=1.0.0] [SCREENSHOTS=false] [SUBMIT=false]$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make ios-metadata-push APP=OpsFlow_Hub [VERSION=1.0.0] [SCREENSHOTS=false] [SUBMIT=false] [OVERWRITE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane ios push_metadata app:$(APP) version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false}
+	fastlane ios push_metadata app:$(APP) version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false} overwrite_screenshots:$${OVERWRITE:-true}
 
 ios-metadata-upload: ios-metadata-push
 
@@ -331,10 +331,10 @@ ios-metadata-download: ios-metadata-pull
 # --- macOS (Mac App Store) ---
 mac-metadata-push:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make mac-metadata-push APP=OpsFlow_Hub [VERSION=1.0.0] [SCREENSHOTS=false] [SUBMIT=false]$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make mac-metadata-push APP=OpsFlow_Hub [VERSION=1.0.0] [SCREENSHOTS=false] [SUBMIT=false] [OVERWRITE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane mac push_metadata app:$(APP) version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false}
+	fastlane mac push_metadata app:$(APP) version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false} overwrite_screenshots:$${OVERWRITE:-true}
 
 mac-metadata-upload: mac-metadata-push
 

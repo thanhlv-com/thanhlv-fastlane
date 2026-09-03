@@ -1166,6 +1166,77 @@ def download_app_metadata_from_store(app_key, platform = "ios", options = {})
   UI.success("🎉 Hoàn tất tải Metadata cho #{app_key} [#{platform_norm.upcase}] về: #{metadata_dir}")
 end
 
+# Chuẩn hoá và đồng bộ thư mục screenshots cho iOS & macOS trước khi gọi Deliver
+# 1. Nếu có file ảnh nằm trong metadata_dir/<locale>/*.png -> đồng bộ sang screenshots_dir/<locale>/*.png
+# 2. Nếu có file ảnh nằm phẳng ở gốc screenshots_dir/*.png -> đồng bộ sang screenshots_dir/<locale>/*.png cho các locale
+# 3. Thống kê và kiểm tra số lượng screenshots theo từng locale để thông báo cho người dùng
+def prepare_and_normalize_app_store_screenshots!(metadata_dir, screenshots_dir)
+  return {} unless Dir.exist?(screenshots_dir) || Dir.exist?(metadata_dir)
+
+  FileUtils.mkdir_p(screenshots_dir)
+
+  # 1. Tìm các locale folders hợp lệ trong metadata_dir (ví dụ: en-US, vi)
+  meta_locales = []
+  if Dir.exist?(metadata_dir)
+    meta_locales = Dir.glob(File.join(metadata_dir, "*"))
+                      .select { |d| File.directory?(d) }
+                      .map { |d| File.basename(d) }
+                      .reject { |n| ["screenshots", "images", "review_information", "default", "appleTV", "iMessage"].include?(n) }
+  end
+  meta_locales = ["en-US"] if meta_locales.empty?
+
+  # 2. Đồng bộ các file ảnh nằm trực tiếp trong folder locale của metadata_dir (ví dụ: metadata/ios/en-US/*.png)
+  meta_locales.each do |locale|
+    loc_dir = File.join(metadata_dir, locale)
+    next unless Dir.exist?(loc_dir)
+
+    images = Dir.glob(File.join(loc_dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}"))
+    next if images.empty?
+
+    target_loc_dir = File.join(screenshots_dir, locale)
+    FileUtils.mkdir_p(target_loc_dir)
+    synced_count = 0
+    images.each do |img|
+      target_file = File.join(target_loc_dir, File.basename(img))
+      unless File.exist?(target_file) && FileUtils.identical?(img, target_file)
+        FileUtils.cp(img, target_file)
+        synced_count += 1
+      end
+    end
+    UI.message("📸 Tự động đồng bộ #{synced_count} ảnh từ #{locale}/ sang #{screenshots_dir}/#{locale}/") if synced_count > 0
+  end
+
+  # 3. Đồng bộ các file ảnh nằm phẳng ở gốc screenshots_dir (ví dụ: screenshots/*.png) vào từng folder locale
+  flat_images = Dir.glob(File.join(screenshots_dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}"))
+  unless flat_images.empty?
+    meta_locales.each do |locale|
+      target_loc_dir = File.join(screenshots_dir, locale)
+      FileUtils.mkdir_p(target_loc_dir)
+      synced_count = 0
+      flat_images.each do |img|
+        target_file = File.join(target_loc_dir, File.basename(img))
+        unless File.exist?(target_file) && FileUtils.identical?(img, target_file)
+          FileUtils.cp(img, target_file)
+          synced_count += 1
+        end
+      end
+      UI.message("📸 Tự động gom #{synced_count} ảnh từ thư mục gốc screenshots vào: #{screenshots_dir}/#{locale}/") if synced_count > 0
+    end
+  end
+
+  # 4. Thống kê và validate danh sách ảnh trong screenshots_dir/<locale>/
+  stats = {}
+  Dir.glob(File.join(screenshots_dir, "*")).select { |d| File.directory?(d) }.each do |dir|
+    locale = File.basename(dir)
+    next if ["appleTV", "iMessage", "default"].include?(locale)
+
+    shots = Dir.glob(File.join(dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}"))
+    stats[locale] = shots.count unless shots.empty?
+  end
+
+  stats
+end
+
 # Cập nhật metadata và screenshots từ local lên Store
 def upload_app_metadata_to_store(app_key, platform = "ios", options = {})
   app_info = get_app_config(app_key)
@@ -1219,6 +1290,31 @@ def upload_app_metadata_to_store(app_key, platform = "ios", options = {})
     api_key = get_api_key
     deliver_platform = (platform_norm == "macos") ? "osx" : "ios"
 
+    # Chuẩn hoá & đồng bộ ảnh vào đúng folder ngôn ngữ screenshots/<locale>/ cho Deliver
+    unless skip_screenshots
+      screenshot_stats = prepare_and_normalize_app_store_screenshots!(metadata_dir, screenshots_dir)
+      if screenshot_stats.empty?
+        UI.important("⚠️ CẢNH BÁO: Không tìm thấy ảnh Screenshot nào trong #{screenshots_dir}/<locale>/!")
+        UI.important("   Cấu trúc yêu cầu của Fastlane Deliver: #{screenshots_dir}/<locale>/<ten_anh>.png (ví dụ: en-US, vi)")
+      else
+        UI.success("📸 Danh sách screenshots sẵn sàng tải lên App Store Connect:")
+        screenshot_stats.each do |loc, count|
+          UI.message("   • [#{loc}]: #{count} ảnh")
+        end
+      end
+    end
+
+    overwrite_screenshots = if !options[:overwrite_screenshots].nil?
+                              options[:overwrite_screenshots] == true || options[:overwrite_screenshots] == "true"
+                            elsif !options[:overwrite].nil?
+                              options[:overwrite] == true || options[:overwrite] == "true"
+                            else
+                              # Mặc định ghi đè khi upload screenshots để đảm bảo ảnh mới thay thế ảnh cũ trên store
+                              true
+                            end
+
+    UI.message("🚀 Ghi đè screenshots cũ (Overwrite): #{overwrite_screenshots}") unless skip_screenshots
+
     deliver_params = {
       api_key: api_key,
       app_identifier: bundle_id,
@@ -1234,7 +1330,7 @@ def upload_app_metadata_to_store(app_key, platform = "ios", options = {})
       submit_for_review: options[:submit_for_review] == true || options[:submit_for_review] == "true",
       automatic_release: options[:automatic_release] == true || options[:automatic_release] == "true",
       phased_release: options[:phased_release] == true || options[:phased_release] == "true",
-      overwrite_screenshots: options[:overwrite_screenshots] == true || options[:overwrite_screenshots] == "true",
+      overwrite_screenshots: overwrite_screenshots,
       reject_if_possible: options[:reject_if_possible] == true || options[:reject_if_possible] == "true",
       run_precheck_before_submit: false
     }

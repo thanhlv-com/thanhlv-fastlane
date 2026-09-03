@@ -288,6 +288,18 @@ platform :mac do
       screenshots_dir = resolve_screenshots_path(app_key, "macos", options)
       skip_screenshots = options[:upload_screenshots] != true && options[:upload_screenshots] != "true" && options[:screenshots] != true && options[:screenshots] != "true"
 
+      unless skip_screenshots
+        prepare_and_normalize_app_store_screenshots!(metadata_dir, screenshots_dir)
+      end
+
+      overwrite_screenshots = if !options[:overwrite_screenshots].nil?
+                                options[:overwrite_screenshots] == true || options[:overwrite_screenshots] == "true"
+                              elsif !options[:overwrite].nil?
+                                options[:overwrite] == true || options[:overwrite] == "true"
+                              else
+                                true
+                              end
+
       upload_to_app_store(
         api_key: api_key,
         app_identifier: bundle_id,
@@ -299,6 +311,7 @@ platform :mac do
         ignore_language_directory_validation: true,
         skip_screenshots: skip_screenshots,
         skip_metadata: !should_upload_metadata,
+        overwrite_screenshots: overwrite_screenshots,
         run_precheck_before_submit: false
       )
     else
