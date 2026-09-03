@@ -107,6 +107,7 @@ platform :mac do
     bundle_id = resolve_bundle_id(app_info, "macos", options)
     flavor = resolve_flavor(app_info, options)
     version_name, build_number = resolve_version_and_build_number(app_info, options)
+    obfuscate_enabled = resolve_obfuscate(app_info, options)
 
     UI.message("🚀 ========================================================")
     UI.message("🚀 Bắt đầu build macOS: #{app_info['app_name']} (#{bundle_id})")
@@ -114,6 +115,7 @@ platform :mac do
     UI.message("🚀 Version (Build Name): #{version_name || 'Mặc định từ pubspec.yaml'}")
     UI.message("🚀 Build Number: #{build_number}")
     UI.message("🚀 Flavor: #{flavor && !flavor.empty? ? flavor : 'None'}")
+    UI.message("🚀 Obfuscate: #{obfuscate_enabled ? 'Bật (--obfuscate)' : 'Tắt'}")
     UI.message("🚀 ========================================================")
 
     # 2. Tải và cài đặt Certificates/Profiles qua Match nếu không bỏ qua
@@ -157,6 +159,7 @@ platform :mac do
     
     build_args << "--build-name=#{version_name}" if version_name && !version_name.empty?
     build_args << "--build-number=#{build_number}" if build_number && !build_number.empty?
+    build_args.concat(build_flutter_obfuscate_args(workspace_dir, "macos", app_info, options))
 
     flutter_cmd = "flutter build macos --release --config-only #{build_args.join(' ')}"
     UI.message("🛠 Đang chuẩn bị cấu hình Flutter macOS trong workspace: #{flutter_cmd}")
@@ -263,10 +266,12 @@ platform :mac do
 
     # 2. Build macOS PKG trong .workspace
     pkg_file = build_macos(
-      app: app_key,
-      version: version_name,
-      build_number: build_number,
-      skip_certs: true
+      options.merge(
+        app: app_key,
+        version: version_name,
+        build_number: build_number,
+        skip_certs: true
+      )
     )
 
     # 3. Upload lên TestFlight hoặc Mac App Store

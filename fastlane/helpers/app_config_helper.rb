@@ -1,4 +1,5 @@
 require 'json'
+require 'fileutils'
 begin
   require 'fastlane_core'
   require 'fastlane_core/ui/ui'
@@ -99,4 +100,54 @@ def resolve_version_and_build_number(app_info, options)
   build_num = Time.now.to_i.to_s if build_num.nil? || build_num.empty? || build_num == "timestamp"
 
   [version_name, build_num]
+end
+
+# Xác định xem có bật làm rối mã nguồn (--obfuscate) hay không
+# Ưu tiên: options[:obfuscate] -> ENV["OBFUSCATE"] -> app_info["obfuscate"] -> mặc định: true
+def resolve_obfuscate(app_info, options = {})
+  unless options[:obfuscate].nil?
+    val = options[:obfuscate]
+    return val == true || val.to_s.strip.downcase == "true" || val.to_s.strip == "1"
+  end
+
+  if ENV["OBFUSCATE"] && !ENV["OBFUSCATE"].to_s.strip.empty?
+    val = ENV["OBFUSCATE"].to_s.strip.downcase
+    return val == "true" || val == "1"
+  end
+
+  unless app_info["obfuscate"].nil?
+    val = app_info["obfuscate"]
+    return val == true || val.to_s.strip.downcase == "true" || val.to_s.strip == "1"
+  end
+
+  true
+end
+
+# Xác định đường dẫn thư mục lưu trữ debug symbols (--split-debug-info)
+def resolve_split_debug_info_path(workspace_dir, platform = nil, options = {}, app_info = {})
+  raw_path = options[:split_debug_info] || ENV["SPLIT_DEBUG_INFO"] || app_info["split_debug_info"]
+  if raw_path && !raw_path.to_s.strip.empty?
+    return raw_path.to_s.strip
+  end
+
+  if platform && !platform.to_s.strip.empty?
+    "build/#{platform}/symbols"
+  else
+    "build/symbols"
+  end
+end
+
+# Xây dựng danh sách tham số Flutter build liên quan đến obfuscation (--obfuscate và --split-debug-info)
+def build_flutter_obfuscate_args(workspace_dir, platform, app_info, options = {})
+  return [] unless resolve_obfuscate(app_info, options)
+
+  symbols_dir = resolve_split_debug_info_path(workspace_dir, platform, options, app_info)
+  full_symbols_path = File.expand_path(symbols_dir, workspace_dir)
+  begin
+    FileUtils.mkdir_p(full_symbols_path)
+  rescue => e
+    # Flutter CLI tự tạo thư mục khi build nếu chưa tồn tại
+  end
+
+  ["--obfuscate", "--split-debug-info=#{symbols_dir}"]
 end

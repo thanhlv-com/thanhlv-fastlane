@@ -13,6 +13,7 @@
     "apple_id": "6802606509",
     "flavor": "",
     "version": "1.0.0",
+    "obfuscate": true,
     "description": "OpsFlow Hub Multi-Platform Application (iOS, macOS, Android)"
   },
   "app-remove-app": {
@@ -25,6 +26,7 @@
     "bundle_id": "com.thanhlv.remove_app",
     "package_name": "com.thanhlv.remove_app",
     "version": "1.0.0",
+    "obfuscate": true,
     "description": "Find apps fast and uninstall one app or multiple apps with clear progress."
   },
   "session_browser_app": {
@@ -39,6 +41,7 @@
     "bundle_id": "com.thanhlv.sessionbrowserapp",
     "package_name": "com.thanhlv.session_browser_app",
     "version": "1.0.0",
+    "obfuscate": true,
     "description": "Manage multiple websites with isolated sessions and separate logins"
   },
   "app_github_pro": {
@@ -53,6 +56,7 @@
     "bundle_id": "com.thanhlv.githubpro",
     "package_name": "com.thanhlv.githubpro",
     "version": "1.0.0",
+    "obfuscate": true,
     "description": "Git+ is a high-performance developer client designed to bring the complete power of GitHub to your mobile device."
   },
   "app_Lam_Toan_Tre_Con": {
@@ -66,6 +70,7 @@
     "bundle_id": "com.thanhlv.lamtoantrecon",
     "package_name": "com.thanhlv.lamtoantrecon",
     "version": "1.0.0",
+    "obfuscate": true,
     "description": "App làm toán trẻ con"
   },
   "app-snapvid": {
@@ -79,6 +84,7 @@
     "bundle_id": "com.thanhlv.snapvid",
     "package_name": "com.thanhlv.snapvid",
     "version": "1.0.0",
+    "obfuscate": true,
     "description": "FrameSnap: Video to Photo"
   }
 }

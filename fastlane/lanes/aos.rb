@@ -11,6 +11,7 @@ def build_aos_app(options)
   package_name = resolve_bundle_id(app_info, "aos", options)
   flavor = resolve_flavor(app_info, options)
   version_name, build_number = resolve_version_and_build_number(app_info, options)
+  obfuscate_enabled = resolve_obfuscate(app_info, options)
   
   build_type = (options[:type] || options[:target] || "apk").to_s.downcase
   build_type = "appbundle" if build_type == "aab" || build_type == "bundle"
@@ -22,6 +23,7 @@ def build_aos_app(options)
   UI.message("🚀 Version (Build Name): #{version_name || 'Mặc định từ pubspec.yaml'}")
   UI.message("🚀 Build Number: #{build_number}")
   UI.message("🚀 Flavor: #{flavor && !flavor.empty? ? flavor : 'None'}")
+  UI.message("🚀 Obfuscate: #{obfuscate_enabled ? 'Bật (--obfuscate)' : 'Tắt'}")
   UI.message("🚀 ========================================================")
 
   # 2. Xây dựng tham số Flutter build
@@ -29,6 +31,7 @@ def build_aos_app(options)
   build_args << "--flavor #{flavor}" if flavor && !flavor.empty?
   build_args << "--build-name=#{version_name}" if version_name && !version_name.empty?
   build_args << "--build-number=#{build_number}" if build_number && !build_number.empty?
+  build_args.concat(build_flutter_obfuscate_args(workspace_dir, "aos", app_info, options))
 
   flutter_cmd = "flutter build #{build_type} --release #{build_args.join(' ')}"
   UI.message("🛠 Đang compile Flutter Android trong workspace: #{flutter_cmd}")

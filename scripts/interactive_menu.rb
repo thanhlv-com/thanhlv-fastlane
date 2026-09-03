@@ -213,10 +213,12 @@ class InteractiveMenu
 
       upload_meta = prompt_confirm("Có muốn tự động cập nhật Metadata kèm theo bản build không?", false)
       upload_shots = upload_meta ? prompt_confirm("Có muốn upload ảnh Screenshots kèm theo không?", false) : false
+      obfuscate = prompt_confirm("Bật làm rối mã nguồn (--obfuscate)?", true)
 
       cmd = "make #{platform == 'ios' ? 'ios-deploy' : 'mac-deploy'} APP=#{app_key} TARGET=#{target}"
       cmd += " UPLOAD_METADATA=true" if upload_meta
       cmd += " SCREENSHOTS=true" if upload_shots
+      cmd += " OBFUSCATE=#{obfuscate}"
 
     when "aos"
       track = prompt_choice("Chọn Track Google Play", [
@@ -225,7 +227,8 @@ class InteractiveMenu
         { label: "🔭 beta (Beta testing)", value: "beta" },
         { label: "🚀 production (Chính thức)", value: "production" }
       ])
-      cmd = "make aos-deploy APP=#{app_key} TRACK=#{track}"
+      obfuscate = prompt_confirm("Bật làm rối mã nguồn (--obfuscate)?", true)
+      cmd = "make aos-deploy APP=#{app_key} TRACK=#{track} OBFUSCATE=#{obfuscate}"
     end
 
     execute_command(cmd)
@@ -245,6 +248,8 @@ class InteractiveMenu
     app_key = select_app(platform)
     return unless app_key
 
+    obfuscate = prompt_confirm("Bật làm rối mã nguồn (--obfuscate)?", true)
+
     case platform
     when "ios"
       export_method = prompt_choice("Chọn Export Method", [
@@ -253,15 +258,15 @@ class InteractiveMenu
         { label: "Ad-hoc", value: "ad-hoc" },
         { label: "Enterprise", value: "enterprise" }
       ])
-      cmd = "make ios-build APP=#{app_key} EXPORT_METHOD=#{export_method}"
+      cmd = "make ios-build APP=#{app_key} EXPORT_METHOD=#{export_method} OBFUSCATE=#{obfuscate}"
     when "macos"
-      cmd = "make mac-build APP=#{app_key}"
+      cmd = "make mac-build APP=#{app_key} OBFUSCATE=#{obfuscate}"
     when "aos"
       b_type = prompt_choice("Chọn Định Dạng Build", [
         { label: "App Bundle (.aab) - Chuẩn Google Play", value: "appbundle" },
         { label: "APK (.apk) - Cài trực tiếp trên thiết bị", value: "apk" }
       ])
-      cmd = "make aos-build APP=#{app_key} TYPE=#{b_type}"
+      cmd = "make aos-build APP=#{app_key} TYPE=#{b_type} OBFUSCATE=#{obfuscate}"
     end
 
     execute_command(cmd)

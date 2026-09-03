@@ -55,6 +55,11 @@ on:
         required: false
         default: ""
         type: string
+      obfuscate:
+        description: "Bật làm rối mã nguồn (--obfuscate)"
+        required: false
+        default: true
+        type: boolean
 
 # ==============================================================================
 # KHAI BÁO TẬP TRUNG TẤT CẢ BIẾN MÔI TRƯỜNG & SECRETS TỪ GITHUB Ở ĐẦU FILE
@@ -85,6 +90,7 @@ env:
   INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
   INPUT_FLUTTER_CHANNEL: ${{ inputs.flutter_channel }}
   INPUT_FLUTTER_VERSION: ${{ inputs.flutter_version }}
+  INPUT_OBFUSCATE: ${{ inputs.obfuscate }}
 
 jobs:
   deploy-ios:
@@ -157,6 +163,10 @@ jobs:
             EXTRA_ARGS="$EXTRA_ARGS build_number:$EPOCH_BUILD_NUMBER"
           fi
 
+          if [ -n "$INPUT_OBFUSCATE" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS obfuscate:$INPUT_OBFUSCATE"
+          fi
+
           if [ "$TARGET_APP" = "all" ]; then
             echo "🔍 Đang lọc danh sách app hỗ trợ nền tảng iOS từ fastlane/apps.json..."
             IOS_APPS=$(jq -r 'to_entries[] | select(.value.platforms == null or (.value.platforms | map(ascii_downcase) | index("ios"))) | .key' fastlane/apps.json)
@@ -199,5 +209,7 @@ jobs:
           path: |
             .workspace/*/build/ios/ipa/*.ipa
             .workspace/*/build/ios/ipa/*.dSYM.zip
+            .workspace/*/build/ios/symbols/**
+            .workspace/*/build/symbols/**
           if-no-files-found: ignore
           retention-days: 14

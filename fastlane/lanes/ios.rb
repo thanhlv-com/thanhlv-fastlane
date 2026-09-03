@@ -89,6 +89,7 @@ platform :ios do
     bundle_id = resolve_bundle_id(app_info, "ios", options)
     flavor = resolve_flavor(app_info, options)
     version_name, build_number = resolve_version_and_build_number(app_info, options)
+    obfuscate_enabled = resolve_obfuscate(app_info, options)
 
     UI.message("🚀 ========================================================")
     UI.message("🚀 Bắt đầu build iOS: #{app_info['app_name']} (#{bundle_id})")
@@ -96,6 +97,7 @@ platform :ios do
     UI.message("🚀 Version (Build Name): #{version_name || 'Mặc định từ pubspec.yaml'}")
     UI.message("🚀 Build Number: #{build_number}")
     UI.message("🚀 Flavor: #{flavor && !flavor.empty? ? flavor : 'None'}")
+    UI.message("🚀 Obfuscate: #{obfuscate_enabled ? 'Bật (--obfuscate)' : 'Tắt'}")
     UI.message("🚀 ========================================================")
 
     # 2. Tải và cài đặt Certificates/Profiles qua Match nếu không bỏ qua
@@ -128,6 +130,7 @@ platform :ios do
     
     build_args << "--build-name=#{version_name}" if version_name && !version_name.empty?
     build_args << "--build-number=#{build_number}" if build_number && !build_number.empty?
+    build_args.concat(build_flutter_obfuscate_args(workspace_dir, "ios", app_info, options))
 
     flutter_cmd = "flutter build ios --release --no-codesign #{build_args.join(' ')}"
     UI.message("🛠 Đang compile Flutter iOS trong workspace: #{flutter_cmd}")
@@ -214,10 +217,12 @@ platform :ios do
 
     # 2. Build IPA trong .workspace
     ipa_file = build_ios(
-      app: app_key,
-      version: version_name,
-      build_number: build_number,
-      skip_certs: true
+      options.merge(
+        app: app_key,
+        version: version_name,
+        build_number: build_number,
+        skip_certs: true
+      )
     )
 
     # 3. Upload lên TestFlight hoặc App Store

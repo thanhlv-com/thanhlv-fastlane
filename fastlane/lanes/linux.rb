@@ -31,9 +31,20 @@ platform :linux do
     workspace_dir = prepare_app_workspace(app_key, app_info, options, "linux")
 
     version_name, build_number = resolve_version_and_build_number(app_info, options)
+    obfuscate_enabled = resolve_obfuscate(app_info, options)
+
+    UI.message("🚀 ========================================================")
+    UI.message("🚀 Bắt đầu build Linux: #{app_info['app_name']}")
+    UI.message("🚀 Workspace: #{workspace_dir}")
+    UI.message("🚀 Version (Build Name): #{version_name || 'Mặc định từ pubspec.yaml'}")
+    UI.message("🚀 Build Number: #{build_number}")
+    UI.message("🚀 Obfuscate: #{obfuscate_enabled ? 'Bật (--obfuscate)' : 'Tắt'}")
+    UI.message("🚀 ========================================================")
+
     build_args = []
     build_args << "--build-name=#{version_name}" if version_name && !version_name.empty?
     build_args << "--build-number=#{build_number}" if build_number && !build_number.empty?
+    build_args.concat(build_flutter_obfuscate_args(workspace_dir, "linux", app_info, options))
 
     flutter_cmd = "flutter build linux --release #{build_args.join(' ')}"
     UI.message("🛠 Đang compile Flutter Linux: #{flutter_cmd}")

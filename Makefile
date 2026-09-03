@@ -99,17 +99,17 @@ help:
 	@echo "      Đẩy (Push) Metadata & Changelogs từ local lên Google Play Console."
 	@echo ""
 	@echo "$(BOLD)$(YELLOW)🚀 5. BUILD & PHÁT HÀNH LOCAL:$(RESET)"
-	@echo "  $(GREEN)make ios-build APP=<app_key> [FLAVOR=...] [EXPORT_METHOD=app-store]$(RESET)"
-	@echo "      Build iOS IPA trong thư mục .workspace."
-	@echo "  $(GREEN)make ios-deploy APP=<app_key> [TARGET=testflight|appstore] [UPLOAD_METADATA=false]$(RESET)"
+	@echo "  $(GREEN)make ios-build APP=<app_key> [FLAVOR=...] [EXPORT_METHOD=app-store] [OBFUSCATE=true]$(RESET)"
+	@echo "      Build iOS IPA trong thư mục .workspace (mặc định làm rối mã nguồn: --obfuscate)."
+	@echo "  $(GREEN)make ios-deploy APP=<app_key> [TARGET=testflight|appstore] [UPLOAD_METADATA=false] [OBFUSCATE=true]$(RESET)"
 	@echo "      Build & Deploy iOS lên TestFlight hoặc App Store."
-	@echo "  $(GREEN)make mac-build APP=<app_key> [FLAVOR=...]$(RESET)"
-	@echo "      Build macOS PKG trong thư mục .workspace."
-	@echo "  $(GREEN)make mac-deploy APP=<app_key> [TARGET=testflight|appstore] [UPLOAD_METADATA=false]$(RESET)"
+	@echo "  $(GREEN)make mac-build APP=<app_key> [FLAVOR=...] [OBFUSCATE=true]$(RESET)"
+	@echo "      Build macOS PKG trong thư mục .workspace (mặc định làm rối mã nguồn: --obfuscate)."
+	@echo "  $(GREEN)make mac-deploy APP=<app_key> [TARGET=testflight|appstore] [UPLOAD_METADATA=false] [OBFUSCATE=true]$(RESET)"
 	@echo "      Build & Deploy macOS lên TestFlight hoặc Mac App Store."
-	@echo "  $(GREEN)make aos-build APP=<app_key> [TYPE=appbundle|apk]$(RESET)"
-	@echo "      Build Android App Bundle (.aab) hoặc APK trong .workspace."
-	@echo "  $(GREEN)make aos-deploy APP=<app_key> [TRACK=internal|alpha|beta|production]$(RESET)"
+	@echo "  $(GREEN)make aos-build APP=<app_key> [TYPE=appbundle|apk] [OBFUSCATE=true]$(RESET)"
+	@echo "      Build Android App Bundle (.aab) hoặc APK trong .workspace (mặc định: --obfuscate)."
+	@echo "  $(GREEN)make aos-deploy APP=<app_key> [TRACK=internal|alpha|beta|production] [OBFUSCATE=true]$(RESET)"
 	@echo "      Build Android AAB & Deploy lên Google Play Console."
 	@echo ""
 	@echo "$(BOLD)$(CYAN)====================================================================$(RESET)"
@@ -224,62 +224,62 @@ register-app-mac:
 # iOS
 ios-build:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make ios-build APP=OpsFlow_Hub [FLAVOR=...] [EXPORT_METHOD=app-store]$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make ios-build APP=OpsFlow_Hub [FLAVOR=...] [EXPORT_METHOD=app-store] [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane ios build app:$(APP) flavor:$${FLAVOR:-} export_method:$${EXPORT_METHOD:-app-store}
+	fastlane ios build app:$(APP) flavor:$${FLAVOR:-} export_method:$${EXPORT_METHOD:-app-store} obfuscate:$${OBFUSCATE:-}
 
 ios-deploy:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make ios-deploy APP=OpsFlow_Hub [TARGET=testflight|appstore] [UPLOAD_METADATA=false]$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make ios-deploy APP=OpsFlow_Hub [TARGET=testflight|appstore] [UPLOAD_METADATA=false] [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane ios deploy app:$(APP) target:$${TARGET:-testflight} upload_metadata:$${UPLOAD_METADATA:-false} upload_screenshots:$${SCREENSHOTS:-false}
+	fastlane ios deploy app:$(APP) target:$${TARGET:-testflight} upload_metadata:$${UPLOAD_METADATA:-false} upload_screenshots:$${SCREENSHOTS:-false} obfuscate:$${OBFUSCATE:-}
 
 # macOS
 mac-build:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make mac-build APP=OpsFlow_Hub [FLAVOR=...]$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make mac-build APP=OpsFlow_Hub [FLAVOR=...] [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane mac build app:$(APP) flavor:$${FLAVOR:-}
+	fastlane mac build app:$(APP) flavor:$${FLAVOR:-} obfuscate:$${OBFUSCATE:-}
 
 mac-deploy:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make mac-deploy APP=OpsFlow_Hub [TARGET=testflight|appstore] [UPLOAD_METADATA=false]$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make mac-deploy APP=OpsFlow_Hub [TARGET=testflight|appstore] [UPLOAD_METADATA=false] [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane mac deploy app:$(APP) target:$${TARGET:-testflight} upload_metadata:$${UPLOAD_METADATA:-false} upload_screenshots:$${SCREENSHOTS:-false}
+	fastlane mac deploy app:$(APP) target:$${TARGET:-testflight} upload_metadata:$${UPLOAD_METADATA:-false} upload_screenshots:$${SCREENSHOTS:-false} obfuscate:$${OBFUSCATE:-}
 
 # Android / AOS
 aos-build:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make aos-build APP=OpsFlow_Hub [TYPE=appbundle|apk]$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make aos-build APP=OpsFlow_Hub [TYPE=appbundle|apk] [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane aos build app:$(APP) type:$${TYPE:-appbundle}
+	fastlane aos build app:$(APP) type:$${TYPE:-appbundle} obfuscate:$${OBFUSCATE:-}
 
 aos-deploy:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make aos-deploy APP=OpsFlow_Hub [TRACK=internal|alpha|beta|production]$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make aos-deploy APP=OpsFlow_Hub [TRACK=internal|alpha|beta|production] [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane aos deploy app:$(APP) track:$${TRACK:-internal}
+	fastlane aos deploy app:$(APP) track:$${TRACK:-internal} obfuscate:$${OBFUSCATE:-}
 
 # Windows & Linux (Desktop Placeholders / Offline Builds)
 windows-build:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make windows-build APP=OpsFlow_Hub$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make windows-build APP=OpsFlow_Hub [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane windows build app:$(APP)
+	fastlane windows build app:$(APP) obfuscate:$${OBFUSCATE:-}
 
 linux-build:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make linux-build APP=OpsFlow_Hub$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make linux-build APP=OpsFlow_Hub [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane linux build app:$(APP)
+	fastlane linux build app:$(APP) obfuscate:$${OBFUSCATE:-}
 
 # ==============================================================================
 # 5. QUẢN LÝ & ĐỒNG BỘ 2 CHIỀU METADATA (PULL & PUSH)
