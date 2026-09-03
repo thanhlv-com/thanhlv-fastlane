@@ -1190,7 +1190,7 @@ def prepare_and_normalize_app_store_screenshots!(metadata_dir, screenshots_dir)
     loc_dir = File.join(metadata_dir, locale)
     next unless Dir.exist?(loc_dir)
 
-    images = Dir.glob(File.join(loc_dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}"))
+    images = Dir.glob(File.join(loc_dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}")).uniq
     next if images.empty?
 
     target_loc_dir = File.join(screenshots_dir, locale)
@@ -1207,7 +1207,7 @@ def prepare_and_normalize_app_store_screenshots!(metadata_dir, screenshots_dir)
   end
 
   # 3. Đồng bộ các file ảnh nằm phẳng ở gốc screenshots_dir (ví dụ: screenshots/*.png) vào từng folder locale
-  flat_images = Dir.glob(File.join(screenshots_dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}"))
+  flat_images = Dir.glob(File.join(screenshots_dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}")).uniq
   unless flat_images.empty?
     meta_locales.each do |locale|
       target_loc_dir = File.join(screenshots_dir, locale)
@@ -1230,7 +1230,7 @@ def prepare_and_normalize_app_store_screenshots!(metadata_dir, screenshots_dir)
     locale = File.basename(dir)
     next if ["appleTV", "iMessage", "default"].include?(locale)
 
-    shots = Dir.glob(File.join(dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}"))
+    shots = Dir.glob(File.join(dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}")).uniq
     stats[locale] = shots.count unless shots.empty?
   end
 
