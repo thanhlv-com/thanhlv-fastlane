@@ -24,6 +24,7 @@ on:
           - "app_github_pro"
           - "app_Lam_Toan_Tre_Con"
           - "app-snapvid"
+          - "app-QuestFlow"
       type:
         description: "Loại Certificate / Profile"
         required: true

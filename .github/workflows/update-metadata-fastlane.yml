@@ -16,6 +16,7 @@ on:
           - "app_github_pro"
           - "app_Lam_Toan_Tre_Con"
           - "app-snapvid"
+          - "app-QuestFlow"
       platform:
         description: "Nền tảng mục tiêu"
         required: true
