@@ -2,6 +2,7 @@
 name: fastlane_add_app
 description: "Inspects mobile/multiplatform application codebases strictly inside .workspace_code/, extracts project metadata (bundle_id, package_name, version, etc.), and registers configurations into fastlane/apps.json with validation."
 model: gemini-3.8-flash
+thinkingLevel: low
 mainAgent: false
 subagent: true
 commandExecutionPolicy: auto
