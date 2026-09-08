@@ -86,5 +86,20 @@
     "version": "1.0.0",
     "obfuscate": true,
     "description": "FrameSnap: Video to Photo"
+  },
+  "app-QuestFlow": {
+    "app_name": "QuestFlow: RPG Gamified Focus",
+    "git_url": "git@github.com:thanhlv-com/app-QuestFlow.git",
+    "branch": "main",
+    "platforms": [
+      "ios",
+      "macos",
+      "aos"
+    ],
+    "bundle_id": "com.thanhlv.sidequest",
+    "package_name": "com.thanhlv.sidequest",
+    "version": "1.0.0",
+    "obfuscate": true,
+    "description": "Defeat procrastination with RPG quests, Pomodoro battles & castle defense."
   }
 }
