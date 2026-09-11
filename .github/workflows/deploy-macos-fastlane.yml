@@ -14,7 +14,7 @@ on:
           - "session_browser_app"
           - "app_github_pro"
           - "app-QuestFlow"
-          - "app-Comparison-Table-App"
+          - "app_Comparison_Table_App"
       action:
         description: "Hành động thực hiện"
         required: true

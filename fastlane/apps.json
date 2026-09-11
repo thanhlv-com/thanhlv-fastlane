@@ -102,7 +102,7 @@
     "obfuscate": true,
     "description": "Defeat procrastination with RPG quests, Pomodoro battles & castle defense."
   },
-  "app-Comparison-Table-App": {
+  "app_Comparison_Table_App": {
     "app_name": "Pikova: Decision Matrix",
     "git_url": "git@github.com:thanhlv-com/app-Comparison-Table-App.git",
     "branch": "main",

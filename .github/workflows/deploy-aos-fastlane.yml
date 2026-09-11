@@ -17,7 +17,7 @@ on:
           - "app_Lam_Toan_Tre_Con"
           - "app-snapvid"
           - "app-QuestFlow"
-          - "app-Comparison-Table-App"
+          - "app_Comparison_Table_App"
       action:
         description: "Hành động thực hiện"
         required: true
