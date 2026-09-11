@@ -384,17 +384,31 @@ class InteractiveMenu
   # ============================================================================
 
   def handle_prepare_workspace
-    app_key = select_app("all")
-    return unless app_key
+    sub_choice = prompt_choice("Chọn Thao Tác Quản Lý Workspace", [
+      { label: "📥 Đồng bộ source code vào .workspace_code (Clone/Pull từ apps.json)", value: "workspace_code" },
+      { label: "🛠️  Chuẩn bị build workspace trong .workspace (Fastlane prepare_workspace)", value: "build_workspace" }
+    ])
 
-    app_info = @apps[app_key] || {}
-    default_branch = app_info["branch"] || "main"
+    if sub_choice == "workspace_code"
+      app_key = select_app("all", true)
+      return unless app_key
 
-    ref = prompt_input("Nhập Branch/Tag/Commit ref cần checkout", default_branch)
-    force = prompt_confirm("Buộc clone lại từ đầu (Force Re-clone)?", false)
+      app_arg = (app_key == "all") ? "" : " APP=#{app_key}"
+      cmd = "make sync-workspace-code#{app_arg}"
+      execute_command(cmd)
+    else
+      app_key = select_app("all")
+      return unless app_key
 
-    cmd = "make prepare-workspace APP=#{app_key} REF=#{ref} FORCE=#{force}"
-    execute_command(cmd)
+      app_info = @apps[app_key] || {}
+      default_branch = app_info["branch"] || "main"
+
+      ref = prompt_input("Nhập Branch/Tag/Commit ref cần checkout", default_branch)
+      force = prompt_confirm("Buộc clone lại từ đầu (Force Re-clone)?", false)
+
+      cmd = "make prepare-workspace APP=#{app_key} REF=#{ref} FORCE=#{force}"
+      execute_command(cmd)
+    end
   end
 end
 

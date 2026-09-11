@@ -5,7 +5,8 @@
 
 .PHONY: help menu run cli interactive \
         sync-workflows sync check-workflows check validate check-apps check-syntax check-all \
-        install prepare-workspace clean-workspace \
+        install sync-workspace-code clone-workspace-code pull-workspace-code sync-code pull-code clone-code \
+        prepare-workspace clean-workspace \
         clean-certs clean-profiles push-api-key sync-certs-ios sync-certs-mac register-app-ios register-app-mac \
         ios-build ios-deploy mac-build mac-deploy aos-build aos-deploy windows-build linux-build \
         metadata-init metadata-pull metadata-push \
@@ -61,6 +62,10 @@ help:
 	@echo "$(BOLD)$(YELLOW)📦 2. QUẢN LÝ DEPENDENCIES & WORKSPACE:$(RESET)"
 	@echo "  $(GREEN)make install$(RESET)"
 	@echo "      Cài đặt các Gem dependencies (Fastlane & CocoaPods) qua Bundler."
+	@echo "  $(GREEN)make sync-workspace-code [APP=<app_key>] [BRANCH=main]$(RESET)"
+	@echo "      (Alias: $(GREEN)clone-workspace-code$(RESET), $(GREEN)pull-workspace-code$(RESET), $(GREEN)sync-code$(RESET), $(GREEN)pull-code$(RESET))"
+	@echo "      Clone hoặc pull code mới từ danh sách apps.json về thư mục .workspace_code."
+	@echo "      (Mặc định đồng bộ toàn bộ app nếu không truyền APP)."
 	@echo "  $(GREEN)make prepare-workspace APP=<app_key> [REF=main] [FORCE=true]$(RESET)"
 	@echo "      Tải/cập nhật source code cho 1 app cụ thể vào thư mục .workspace."
 	@echo "  $(GREEN)make clean-workspace [APP=<app_key>]$(RESET)"
@@ -157,6 +162,16 @@ check-all: check-syntax check-apps check-workflows
 install:
 	@echo "$(CYAN)📦 Đang cài đặt dependencies qua Bundler...$(RESET)"
 	@bundle install
+
+## Clone hoặc pull code mới từ fastlane/apps.json về .workspace_code
+sync-workspace-code:
+	@APP="$(APP)" BRANCH="$(BRANCH)" REF="$(REF)" ruby scripts/sync_workspace_code.rb
+
+clone-workspace-code: sync-workspace-code
+pull-workspace-code: sync-workspace-code
+sync-code: sync-workspace-code
+pull-code: sync-workspace-code
+clone-code: sync-workspace-code
 
 ## Chuẩn bị source code trong workspace
 prepare-workspace:
