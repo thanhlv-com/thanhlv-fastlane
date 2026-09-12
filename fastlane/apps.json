@@ -116,5 +116,21 @@
     "version": "1.0.0",
     "obfuscate": true,
     "description": "Compare, Score & Decide Fast"
+  },
+  "app-dem-tien-vn": {
+    "app_name": "Đếm Tiền VN",
+    "git_url": "git@github.com:thanhlv-com/app-dem-tien-vn.git",
+    "branch": "main",
+    "platforms": [
+      "ios",
+      "macos",
+      "aos"
+    ],
+    "bundle_id": "com.thanhlv.demtienvn",
+    "package_name": "com.thanhlv.demtienvn",
+    "version": "1.0.0",
+    "obfuscate": true,
+    "description": "Đếm tiền mặt theo mệnh giá VND, lưu lịch sử kiểm quỹ và xuất báo cáo PDF."
   }
 }
+
