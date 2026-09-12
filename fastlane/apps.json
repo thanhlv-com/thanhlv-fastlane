@@ -118,7 +118,7 @@
     "description": "Compare, Score & Decide Fast"
   },
   "app-dem-tien-vn": {
-    "app_name": "Đếm Tiền VN",
+    "app_name": "Đếm Tiền Việt Nam Đồng",
     "git_url": "git@github.com:thanhlv-com/app-dem-tien-vn.git",
     "branch": "main",
     "platforms": [
