@@ -151,3 +151,103 @@ def build_flutter_obfuscate_args(workspace_dir, platform, app_info, options = {}
 
   ["--obfuscate", "--split-debug-info=#{symbols_dir}"]
 end
+
+# Xác định cấu hình Export Compliance (ITSAppUsesNonExemptEncryption)
+# Mặc định giải quyết cảnh báo "Missing Compliance" trên App Store Connect / TestFlight là:
+# "None of the algorithms mentioned above" (chỉ sử dụng mã hoá miễn trừ/tiêu chuẩn như HTTPS/TLS/SSL -> false)
+# Thứ tự ưu tiên: options[:uses_non_exempt_encryption] -> ENV["USES_NON_EXEMPT_ENCRYPTION"] -> app_info["uses_non_exempt_encryption"] -> false (mặc định)
+def resolve_uses_non_exempt_encryption(app_info = {}, options = {})
+  app_info ||= {}
+  options ||= {}
+
+  unless options[:uses_non_exempt_encryption].nil?
+    val = options[:uses_non_exempt_encryption]
+    return val == true || val.to_s.strip.downcase == "true" || val.to_s.strip == "1"
+  end
+
+  if ENV["USES_NON_EXEMPT_ENCRYPTION"] && !ENV["USES_NON_EXEMPT_ENCRYPTION"].to_s.strip.empty?
+    val = ENV["USES_NON_EXEMPT_ENCRYPTION"].to_s.strip.downcase
+    return val == "true" || val == "1"
+  end
+
+  unless app_info["uses_non_exempt_encryption"].nil?
+    val = app_info["uses_non_exempt_encryption"]
+    return val == true || val.to_s.strip.downcase == "true" || val.to_s.strip == "1"
+  end
+
+  # Mặc định: false ("None of the algorithms mentioned above")
+  false
+end
+
+# Tự động cập nhật hoặc thêm ITSAppUsesNonExemptEncryption vào Info.plist
+# để tự động giải quyết "Missing Compliance" trên App Store Connect & TestFlight
+def configure_export_compliance!(workspace_dir, platform, app_info = {}, options = {})
+  uses_non_exempt = resolve_uses_non_exempt_encryption(app_info, options)
+  platform_name = normalize_platform_name(platform)
+
+  candidate_plists = []
+  case platform_name
+  when "ios"
+    runner_plist = File.join(workspace_dir, "ios", "Runner", "Info.plist")
+    candidate_plists << runner_plist if File.exist?(runner_plist)
+
+    ios_dir = File.join(workspace_dir, "ios")
+    if File.directory?(ios_dir)
+      Dir.glob(File.join(ios_dir, "**", "Info.plist")).each do |p|
+        next if p.include?("/Pods/") || p.include?("/.symlinks/") || p.include?("/build/") || p.include?("/DerivedData/")
+        candidate_plists << p
+      end
+    end
+  when "macos"
+    runner_plist = File.join(workspace_dir, "macos", "Runner", "Info.plist")
+    candidate_plists << runner_plist if File.exist?(runner_plist)
+
+    macos_dir = File.join(workspace_dir, "macos")
+    if File.directory?(macos_dir)
+      Dir.glob(File.join(macos_dir, "**", "Info.plist")).each do |p|
+        next if p.include?("/Pods/") || p.include?("/.symlinks/") || p.include?("/build/") || p.include?("/DerivedData/")
+        candidate_plists << p
+      end
+    end
+  end
+
+  candidate_plists = candidate_plists.uniq
+  if candidate_plists.empty?
+    UI.message("ℹ️ Không tìm thấy file Info.plist trong #{workspace_dir}/#{platform_name} để cấu hình Export Compliance.")
+    return
+  end
+
+  compliance_label = uses_non_exempt ? "true" : "false ('None of the algorithms mentioned above')"
+  candidate_plists.each do |plist_path|
+    apply_plist_compliance(plist_path, uses_non_exempt)
+    relative_path = plist_path.sub(workspace_dir.to_s, "").sub(%r{^/}, "")
+    UI.success("🛡 Đã cấu hình Export Compliance (ITSAppUsesNonExemptEncryption = #{compliance_label}) tại #{relative_path}")
+  end
+end
+
+# Áp dụng cấu hình ITSAppUsesNonExemptEncryption vào file plist
+def apply_plist_compliance(plist_path, uses_non_exempt)
+  val_str = uses_non_exempt ? "true" : "false"
+  updated = false
+
+  # 1. Thử dùng công cụ PlistBuddy có sẵn trên macOS
+  if File.exist?("/usr/libexec/PlistBuddy")
+    set_cmd = "/usr/libexec/PlistBuddy -c \"Set :ITSAppUsesNonExemptEncryption #{val_str}\" \"#{plist_path}\" 2>/dev/null"
+    add_cmd = "/usr/libexec/PlistBuddy -c \"Add :ITSAppUsesNonExemptEncryption bool #{val_str}\" \"#{plist_path}\" 2>/dev/null"
+    updated = system("#{set_cmd} || #{add_cmd}")
+  end
+
+  # 2. Xử lý dự phòng trực tiếp bằng XML text nếu PlistBuddy không khả dụng
+  unless updated
+    content = File.read(plist_path)
+    val_tag = uses_non_exempt ? "<true/>" : "<false/>"
+    if content =~ /<key>ITSAppUsesNonExemptEncryption<\/key>\s*<(true|false)\/>/
+      new_content = content.sub(/<key>ITSAppUsesNonExemptEncryption<\/key>\s*<(true|false)\/>/, "<key>ITSAppUsesNonExemptEncryption</key>\n\t#{val_tag}")
+      File.write(plist_path, new_content)
+    elsif content =~ /<\/dict>/
+      new_content = content.sub(/<\/dict>/, "\t<key>ITSAppUsesNonExemptEncryption</key>\n\t#{val_tag}\n</dict>")
+      File.write(plist_path, new_content)
+    end
+  end
+end
+

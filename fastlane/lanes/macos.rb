@@ -108,6 +108,7 @@ platform :mac do
     flavor = resolve_flavor(app_info, options)
     version_name, build_number = resolve_version_and_build_number(app_info, options)
     obfuscate_enabled = resolve_obfuscate(app_info, options)
+    uses_non_exempt_enc = resolve_uses_non_exempt_encryption(app_info, options)
 
     UI.message("🚀 ========================================================")
     UI.message("🚀 Bắt đầu build macOS: #{app_info['app_name']} (#{bundle_id})")
@@ -116,7 +117,11 @@ platform :mac do
     UI.message("🚀 Build Number: #{build_number}")
     UI.message("🚀 Flavor: #{flavor && !flavor.empty? ? flavor : 'None'}")
     UI.message("🚀 Obfuscate: #{obfuscate_enabled ? 'Bật (--obfuscate)' : 'Tắt'}")
+    UI.message("🚀 Export Compliance (Missing Compliance): #{uses_non_exempt_enc ? 'Non-exempt' : 'None of the algorithms mentioned above (ITSAppUsesNonExemptEncryption = false)'}")
     UI.message("🚀 ========================================================")
+
+    # 1.1 Cấu hình mặc định Export Compliance trong Info.plist (Missing Compliance -> None of the algorithms mentioned above)
+    configure_export_compliance!(workspace_dir, "macos", app_info, options)
 
     # 2. Tải và cài đặt Certificates/Profiles qua Match nếu không bỏ qua
     if options[:skip_certs] != true && options[:skip_certs] != "true"
@@ -280,7 +285,8 @@ platform :mac do
         api_key: api_key,
         app_identifier: bundle_id,
         pkg: pkg_file,
-        skip_waiting_for_build_processing: true
+        skip_waiting_for_build_processing: true,
+        uses_non_exempt_encryption: resolve_uses_non_exempt_encryption(app_info, options)
       )
     elsif target.to_s.downcase == "appstore"
       should_upload_metadata = options[:upload_metadata] == true || options[:upload_metadata] == "true"

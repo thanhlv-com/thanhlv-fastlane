@@ -242,14 +242,14 @@ ios-build:
 		echo "$(RED)❌ Vui lòng chỉ định app: make ios-build APP=OpsFlow_Hub [FLAVOR=...] [EXPORT_METHOD=app-store] [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane ios build app:$(APP) flavor:$${FLAVOR:-} export_method:$${EXPORT_METHOD:-app-store} obfuscate:$${OBFUSCATE:-}
+	fastlane ios build app:$(APP) flavor:$${FLAVOR:-} export_method:$${EXPORT_METHOD:-app-store} obfuscate:$${OBFUSCATE:-} uses_non_exempt_encryption:$${USES_NON_EXEMPT_ENCRYPTION:-}
 
 ios-deploy:
 	@if [ -z "$(APP)" ]; then \
 		echo "$(RED)❌ Vui lòng chỉ định app: make ios-deploy APP=OpsFlow_Hub [TARGET=testflight|appstore] [UPLOAD_METADATA=false] [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane ios deploy app:$(APP) target:$${TARGET:-testflight} upload_metadata:$${UPLOAD_METADATA:-false} upload_screenshots:$${SCREENSHOTS:-false} obfuscate:$${OBFUSCATE:-}
+	fastlane ios deploy app:$(APP) target:$${TARGET:-testflight} upload_metadata:$${UPLOAD_METADATA:-false} upload_screenshots:$${SCREENSHOTS:-false} obfuscate:$${OBFUSCATE:-} uses_non_exempt_encryption:$${USES_NON_EXEMPT_ENCRYPTION:-}
 
 # macOS
 mac-build:
@@ -257,14 +257,14 @@ mac-build:
 		echo "$(RED)❌ Vui lòng chỉ định app: make mac-build APP=OpsFlow_Hub [FLAVOR=...] [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane mac build app:$(APP) flavor:$${FLAVOR:-} obfuscate:$${OBFUSCATE:-}
+	fastlane mac build app:$(APP) flavor:$${FLAVOR:-} obfuscate:$${OBFUSCATE:-} uses_non_exempt_encryption:$${USES_NON_EXEMPT_ENCRYPTION:-}
 
 mac-deploy:
 	@if [ -z "$(APP)" ]; then \
 		echo "$(RED)❌ Vui lòng chỉ định app: make mac-deploy APP=OpsFlow_Hub [TARGET=testflight|appstore] [UPLOAD_METADATA=false] [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane mac deploy app:$(APP) target:$${TARGET:-testflight} upload_metadata:$${UPLOAD_METADATA:-false} upload_screenshots:$${SCREENSHOTS:-false} obfuscate:$${OBFUSCATE:-}
+	fastlane mac deploy app:$(APP) target:$${TARGET:-testflight} upload_metadata:$${UPLOAD_METADATA:-false} upload_screenshots:$${SCREENSHOTS:-false} obfuscate:$${OBFUSCATE:-} uses_non_exempt_encryption:$${USES_NON_EXEMPT_ENCRYPTION:-}
 
 # Android / AOS
 aos-build:
