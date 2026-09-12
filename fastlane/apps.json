@@ -1,6 +1,6 @@
 {
   "OpsFlow_Hub": {
-    "app_name": "OpsFlow Hub",
+    "app_name": "CloudOps Hub",
     "git_url": "git@github.com:thanhlv-com/dev-tool.git",
     "branch": "main",
     "platforms": [
@@ -14,7 +14,7 @@
     "flavor": "",
     "version": "1.2.0",
     "obfuscate": true,
-    "description": "OpsFlow Hub Multi-Platform Application (iOS, macOS, Android)"
+    "description": "CloudOps Hub Multi-Platform Application (iOS, macOS, Android)"
   },
   "app-remove-app": {
     "app_name": "Remove App - Fast Uninstall",
