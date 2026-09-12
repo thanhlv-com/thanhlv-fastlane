@@ -10,7 +10,7 @@ on:
         type: choice
         options:
           - "all"
-          - "OpsFlow_Hub"
+          - "CloudOps"
           - "session_browser_app"
           - "app_github_pro"
           - "app_Lam_Toan_Tre_Con"
