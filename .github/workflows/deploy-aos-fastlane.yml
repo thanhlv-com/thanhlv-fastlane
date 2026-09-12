@@ -18,6 +18,7 @@ on:
           - "app-snapvid"
           - "app-QuestFlow"
           - "app_Comparison_Table_App"
+          - "app-dem-tien-vn"
       action:
         description: "Hành động thực hiện"
         required: true
