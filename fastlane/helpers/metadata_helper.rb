@@ -985,9 +985,46 @@ def init_app_metadata_template(app_key, app_info = {}, platform = "all", locales
     locales = TOP_20_METADATA_LOCALES
   end
 
+  # Hỗ trợ chạy hàng loạt cho tất cả các app khi app_key = "all"
+  if app_key.to_s.downcase == "all"
+    all_apps = load_apps_config
+    UI.message("🌐 Bắt đầu khởi tạo Metadata cho TẤT CẢ #{all_apps.keys.count} ứng dụng...")
+    first_res = nil
+    all_apps.each do |k, info|
+      res = init_app_metadata_template(k, info, platform, locales, options)
+      first_res ||= res
+    end
+    return first_res
+  end
+
   app_info = get_app_config(app_key) if app_info.nil? || app_info.empty?
   app_name = app_info["app_name"] || app_key.to_s.tr("_", " ")
   description = app_info["description"] || "Ứng dụng #{app_name} được phát triển bởi thanhlv.com"
+
+  # Xác định danh sách nền tảng được cấu hình hỗ trợ trong apps.json để TRÁNH TẠO DƯ
+  configured_platforms = (app_info["platforms"] || []).map { |p| normalize_platform_name(p) }.compact.uniq
+
+  target_platforms = if platform.nil? || platform.to_s.downcase == "all"
+                       if configured_platforms.empty?
+                         UI.important("⚠️ App '#{app_key}' không khai báo 'platforms' trong apps.json. Mặc định chỉ khởi tạo [ios, aos] để tránh tạo dư các nền tảng khác!")
+                         ["ios", "aos"]
+                       else
+                         # Dựa chặt chẽ vào cấu hình platforms của app trong apps.json, TUYỆT ĐỐI không tạo dư (như windows, linux...)
+                         configured_platforms
+                       end
+                     else
+                       req_p = normalize_platform_name(platform)
+                       if !configured_platforms.empty? && !configured_platforms.include?(req_p)
+                         UI.important("⏩ Bỏ qua khởi tạo metadata [#{req_p.upcase}] cho app '#{app_key}' vì không nằm trong cấu hình platforms: [#{configured_platforms.join(', ')}]. Tránh tạo dư!")
+                         return nil
+                       end
+                       [req_p]
+                     end
+
+  if target_platforms.empty?
+    UI.important("⏩ Không có nền tảng nào hợp lệ để tạo metadata cho app '#{app_key}'.")
+    return nil
+  end
 
   # Đảm bảo repo đã có trong .workspace_code, nếu chưa có thì clone về rồi tạo
   target_repo_dir = if options[:metadata_path] && !options[:metadata_path].to_s.strip.empty?
@@ -1004,13 +1041,6 @@ def init_app_metadata_template(app_key, app_info = {}, platform = "all", locales
                        locales
                      end
   selected_locales = TOP_20_METADATA_LOCALES if selected_locales.nil? || selected_locales.empty?
-
-  target_platforms = if platform.nil? || platform.to_s.downcase == "all"
-                       app_platforms = (app_info["platforms"] || []).map { |p| normalize_platform_name(p) }.compact.uniq
-                       app_platforms.empty? ? SUPPORTED_METADATA_PLATFORMS : app_platforms
-                     else
-                       [normalize_platform_name(platform)]
-                     end
 
   first_target_dir = nil
 
@@ -1130,10 +1160,18 @@ end
 
 # Tải metadata và screenshots từ Store về thư mục local
 def download_app_metadata_from_store(app_key, platform = "ios", options = {})
+  if app_key.to_s.downcase == "all"
+    load_apps_config.each_key do |k|
+      download_app_metadata_from_store(k, platform, options)
+    end
+    return
+  end
+
   app_info = get_app_config(app_key)
 
   if platform.to_s.downcase == "all"
-    supported_platforms = app_info["platforms"] || SUPPORTED_METADATA_PLATFORMS
+    supported_platforms = (app_info["platforms"] || []).map { |p| normalize_platform_name(p) }.compact.uniq
+    supported_platforms = ["ios", "aos"] if supported_platforms.empty?
     supported_platforms.each do |p|
       download_app_metadata_from_store(app_key, p, options)
     end
@@ -1314,10 +1352,18 @@ end
 
 # Cập nhật metadata và screenshots từ local lên Store
 def upload_app_metadata_to_store(app_key, platform = "ios", options = {})
+  if app_key.to_s.downcase == "all"
+    load_apps_config.each_key do |k|
+      upload_app_metadata_to_store(k, platform, options)
+    end
+    return
+  end
+
   app_info = get_app_config(app_key)
 
   if platform.to_s.downcase == "all"
-    supported_platforms = app_info["platforms"] || SUPPORTED_METADATA_PLATFORMS
+    supported_platforms = (app_info["platforms"] || []).map { |p| normalize_platform_name(p) }.compact.uniq
+    supported_platforms = ["ios", "aos"] if supported_platforms.empty?
     supported_platforms.each do |p|
       upload_app_metadata_to_store(app_key, p, options)
     end

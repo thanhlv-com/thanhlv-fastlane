@@ -35,17 +35,21 @@ lane :prepare_workspace do |options|
   prepare_app_workspace(app_key, app_info, options)
 end
 
-desc "Khởi tạo thư mục và các file Metadata template mẫu cho 1 app"
+desc "Khởi tạo thư mục và các file Metadata template mẫu cho 1 app (hoặc app:all)"
 lane :init_metadata do |options|
-  app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane init_metadata app:OpsFlow_Hub")
-  app_info = get_app_config(app_key)
+  app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane init_metadata app:OpsFlow_Hub [platform:all|ios|macos|aos]")
   platform = options[:platform] || "all"
-  init_app_metadata_template(app_key, app_info, platform, TOP_20_METADATA_LOCALES, options)
+  if app_key.to_s.downcase == "all"
+    init_app_metadata_template("all", {}, platform, TOP_20_METADATA_LOCALES, options)
+  else
+    app_info = get_app_config(app_key)
+    init_app_metadata_template(app_key, app_info, platform, TOP_20_METADATA_LOCALES, options)
+  end
 end
 
 desc "Cập nhật (Push/Upload) Metadata từ local lên App Store / Store"
 lane :push_metadata do |options|
-  app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane push_metadata app:OpsFlow_Hub [platform:ios|macos|aos]")
+  app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane push_metadata app:OpsFlow_Hub [platform:all|ios|macos|aos]")
   platform = options[:platform] || "ios"
   upload_app_metadata_to_store(app_key, platform, options)
 end
@@ -57,7 +61,7 @@ end
 
 desc "Tải (Pull/Download) Metadata từ App Store / Store về máy local để chỉnh sửa"
 lane :pull_metadata do |options|
-  app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane pull_metadata app:OpsFlow_Hub [platform:ios|macos|aos]")
+  app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane pull_metadata app:OpsFlow_Hub [platform:all|ios|macos|aos]")
   platform = options[:platform] || "ios"
   download_app_metadata_from_store(app_key, platform, options)
 end
