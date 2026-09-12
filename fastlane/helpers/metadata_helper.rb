@@ -21,6 +21,9 @@ end unless defined?(FastlaneCore::UI)
 
 UI = FastlaneCore::UI unless defined?(UI)
 
+require_relative 'app_config_helper' unless defined?(get_app_config)
+require_relative 'git_workspace_helper' unless defined?(ensure_app_workspace_code!)
+
 # Danh sách toàn bộ các nền tảng hỗ trợ
 SUPPORTED_METADATA_PLATFORMS = ["ios", "macos", "aos", "windows", "linux"].freeze
 
@@ -55,46 +58,96 @@ def has_central_metadata?(app_key, platform = nil)
   end
 end
 
-# Đảm bảo workspace đã được clone/pull nếu app lưu metadata trực tiếp trong repo mã nguồn
+# Kiểm tra xem app có thư mục metadata trong repo tại .workspace_code/<app_key>/metadata/<platform> hay không
+def has_workspace_code_metadata?(app_key, platform = nil)
+  ws_code_dir = app_workspace_code_path(app_key)
+  return false unless Dir.exist?(ws_code_dir)
+
+  if platform && !platform.to_s.empty? && platform.to_s.downcase != "all"
+    platform_norm = normalize_platform_name(platform)
+    platform_dir = File.join(ws_code_dir, "metadata", platform_norm)
+    alt_dir = case platform_norm
+              when "aos" then File.join(ws_code_dir, "metadata", "android")
+              when "macos" then File.join(ws_code_dir, "metadata", "mac")
+              else nil
+              end
+    has_valid_metadata_dir?(platform_dir) || (alt_dir && has_valid_metadata_dir?(alt_dir))
+  else
+    meta_root = File.join(ws_code_dir, "metadata")
+    return false unless Dir.exist?(meta_root)
+    Dir.children(meta_root).any? do |entry|
+      sub = File.join(meta_root, entry)
+      File.directory?(sub) && has_valid_metadata_dir?(sub)
+    end
+  end
+end
+
+# Đảm bảo workspace/repo đã được clone/pull nếu app lưu metadata trong repo (.workspace_code)
 def ensure_app_metadata_workspace!(app_key, app_info = nil, options = {}, platform = nil)
   platform_norm = normalize_platform_name(platform)
 
-  # Nếu app đã có thư mục metadata tập trung hợp lệ tại fastlane/metadata/<app_key>/<platform>, không cần pull workspace
+  # 1. Nếu app đã có thư mục metadata trong .workspace_code/<app_key>/metadata/<platform>, dùng luôn
+  return if has_workspace_code_metadata?(app_key, platform_norm)
+
+  # 2. Nếu app đã có thư mục metadata tập trung hợp lệ tại fastlane/metadata/<app_key>/<platform>, không cần pull
   return if has_central_metadata?(app_key, platform_norm)
 
   app_info ||= get_app_config(app_key)
-  UI.message("📂 Không tìm thấy folder metadata trong #{metadata_root_path}/#{app_key}/#{platform_norm}.")
-  UI.message("🔄 Metadata nằm trong repository của app. Đang pull repo về .workspace/#{app_key}...")
+  UI.message("📂 Chưa tìm thấy metadata cho '#{app_key}' [#{platform_norm}].")
+  UI.message("🔄 Đang kiểm tra và clone mã nguồn về .workspace_code/#{app_key}...")
 
-  # Kéo repository về .workspace (skip_pub_get để tối ưu tốc độ)
-  prepare_app_workspace(app_key, app_info, options.merge(skip_pub_get: true), platform_norm)
+  # Clone repo về .workspace_code nếu chưa có
+  ensure_app_workspace_code!(app_key, app_info, options)
 end
 
 # Xác định đường dẫn thư mục metadata tách biệt theo từng App và từng Platform:
-# Quy tắc đường dẫn:
-# 1. Nếu có folder hợp lệ trong fastlane/metadata/<app_key>/<platform>/ thì dùng fastlane/metadata/<app_key>/<platform>/
-# 2. Nếu không có folder trong fastlane/metadata/, metadata sẽ ở trong repo với path: .workspace/<app_key>/metadata/<platform>/ (metadata/ios, metadata/macos, metadata/aos, ...)
+# Quy tắc đường dẫn (Ưu tiên tuyệt đối thư mục metadata trong repo tại .workspace_code):
+# 1. options[:metadata_path] (nếu truyền tường minh)
+# 2. Thư mục metadata trong repo tại .workspace_code/<app_key>/metadata/<platform>/ (hoặc fastlane/metadata/<platform>/)
+# 3. Thư mục metadata tập trung trong fastlane/metadata/<app_key>/<platform>/ (nếu có dữ liệu hợp lệ)
+# 4. Thư mục metadata trong .workspace/<app_key>/metadata/<platform>/ (nếu build workspace đã có)
 def resolve_metadata_path(app_key, platform = "ios", options = {})
   if options[:metadata_path] && !options[:metadata_path].to_s.strip.empty?
     return File.expand_path(options[:metadata_path].to_s.strip)
   end
 
   platform_norm = normalize_platform_name(platform)
+  app_info = nil
+  begin
+    app_info = get_app_config(app_key) rescue nil
+  end
+
+  # 1. Ưu tiên hàng đầu: Thư mục metadata trong repo tại .workspace_code/<app_key>/metadata/<platform>/
+  ws_code_dir = app_workspace_code_path(app_key, app_info)
+  ws_code_meta_dir = File.join(ws_code_dir, "metadata", platform_norm)
+  ws_code_fastlane_meta_dir = File.join(ws_code_dir, "fastlane", "metadata", platform_norm)
+  alt_code_dir = case platform_norm
+                 when "aos" then File.join(ws_code_dir, "metadata", "android")
+                 when "macos" then File.join(ws_code_dir, "metadata", "mac")
+                 else nil
+                 end
+
+  if has_valid_metadata_dir?(ws_code_meta_dir) || Dir.exist?(ws_code_meta_dir)
+    return ws_code_meta_dir
+  elsif alt_code_dir && (has_valid_metadata_dir?(alt_code_dir) || Dir.exist?(alt_code_dir))
+    return alt_code_dir
+  elsif has_valid_metadata_dir?(ws_code_fastlane_meta_dir) || Dir.exist?(ws_code_fastlane_meta_dir)
+    return ws_code_fastlane_meta_dir
+  elsif Dir.exist?(ws_code_dir)
+    return ws_code_meta_dir
+  end
+
+  # 2. Thư mục metadata tập trung trong fastlane/metadata/<app_key>/<platform>/ (nếu có dữ liệu hợp lệ)
   central_app_dir = File.join(metadata_root_path, app_key.to_s)
   central_platform_dir = File.join(central_app_dir, platform_norm)
-
-  # 1. Ưu tiên thư mục metadata tập trung trong thanhlv-fastlane nếu tồn tại VÀ chứa file metadata
   if has_valid_metadata_dir?(central_platform_dir)
     return central_platform_dir
   end
 
-  # 2. Nếu không có folder trong fastlane/metadata/, lấy metadata trong thư mục của repo trong .workspace:
-  # Path: metadata/ios, metadata/macos, metadata/aos, metadata/windows, metadata/linux
+  # 3. Thư mục trong build workspace (.workspace/<app_key>/metadata/<platform>/)
   workspace_dir = app_workspace_path(app_key)
   repo_metadata_platform_dir = File.join(workspace_dir, "metadata", platform_norm)
   repo_fastlane_metadata_platform_dir = File.join(workspace_dir, "fastlane", "metadata", platform_norm)
-
-  # Platform alias dự phòng
   alt_platform_dir = case platform_norm
                      when "aos" then File.join(workspace_dir, "metadata", "android")
                      when "macos" then File.join(workspace_dir, "metadata", "mac")
@@ -102,18 +155,15 @@ def resolve_metadata_path(app_key, platform = "ios", options = {})
                      end
 
   if has_valid_metadata_dir?(repo_metadata_platform_dir) || Dir.exist?(repo_metadata_platform_dir)
-    repo_metadata_platform_dir
+    return repo_metadata_platform_dir
   elsif alt_platform_dir && (has_valid_metadata_dir?(alt_platform_dir) || Dir.exist?(alt_platform_dir))
-    alt_platform_dir
+    return alt_platform_dir
   elsif has_valid_metadata_dir?(repo_fastlane_metadata_platform_dir) || Dir.exist?(repo_fastlane_metadata_platform_dir)
-    repo_fastlane_metadata_platform_dir
-  elsif Dir.exist?(workspace_dir)
-    # Tạo folder metadata/<platform> ngay trong workspace repo của app (KHÔNG tạo trong fastlane/metadata/)
-    FileUtils.mkdir_p(repo_metadata_platform_dir)
-    repo_metadata_platform_dir
-  else
-    repo_metadata_platform_dir
+    return repo_fastlane_metadata_platform_dir
   end
+
+  # Mặc định: Trỏ về repo trong .workspace_code
+  ws_code_meta_dir
 end
 
 # Xác định đường dẫn thư mục screenshots (được gộp trực tiếp vào thư mục metadata của platform):
@@ -927,9 +977,24 @@ def init_linux_metadata_template(target_dir, app_name, description, locales = TO
 end
 
 # Hàm tổng khởi tạo template cho 1 app theo nền tảng cụ thể hoặc tất cả nền tảng
+# Thực hiện tạo metadata trực tiếp trong repository ở .workspace_code/<app_key>/metadata/<platform>
+# Nếu chưa có thì clone về rồi tạo.
 def init_app_metadata_template(app_key, app_info = {}, platform = "all", locales = TOP_20_METADATA_LOCALES, options = {})
+  if locales.is_a?(Hash) && options.empty?
+    options = locales
+    locales = TOP_20_METADATA_LOCALES
+  end
+
+  app_info = get_app_config(app_key) if app_info.nil? || app_info.empty?
   app_name = app_info["app_name"] || app_key.to_s.tr("_", " ")
   description = app_info["description"] || "Ứng dụng #{app_name} được phát triển bởi thanhlv.com"
+
+  # Đảm bảo repo đã có trong .workspace_code, nếu chưa có thì clone về rồi tạo
+  target_repo_dir = if options[:metadata_path] && !options[:metadata_path].to_s.strip.empty?
+                      nil
+                    else
+                      ensure_app_workspace_code!(app_key, app_info, options)
+                    end
 
   selected_locales = if options[:locales] && !options[:locales].to_s.strip.empty?
                        options[:locales].is_a?(Array) ? options[:locales] : options[:locales].to_s.split(",").map(&:strip)
@@ -941,15 +1006,24 @@ def init_app_metadata_template(app_key, app_info = {}, platform = "all", locales
   selected_locales = TOP_20_METADATA_LOCALES if selected_locales.nil? || selected_locales.empty?
 
   target_platforms = if platform.nil? || platform.to_s.downcase == "all"
-                       SUPPORTED_METADATA_PLATFORMS
+                       app_platforms = (app_info["platforms"] || []).map { |p| normalize_platform_name(p) }.compact.uniq
+                       app_platforms.empty? ? SUPPORTED_METADATA_PLATFORMS : app_platforms
                      else
                        [normalize_platform_name(platform)]
                      end
 
+  first_target_dir = nil
+
   target_platforms.each do |p|
     platform_norm = normalize_platform_name(p)
-    target_dir = resolve_metadata_path(app_key, platform_norm, options)
+    target_dir = if options[:metadata_path] && !options[:metadata_path].to_s.strip.empty?
+                   File.expand_path(options[:metadata_path].to_s.strip)
+                 else
+                   File.join(target_repo_dir, "metadata", platform_norm)
+                 end
+
     FileUtils.mkdir_p(target_dir)
+    first_target_dir ||= target_dir
 
     case platform_norm
     when "ios"
@@ -964,10 +1038,11 @@ def init_app_metadata_template(app_key, app_info = {}, platform = "all", locales
       init_linux_metadata_template(target_dir, app_name, description, selected_locales)
     end
 
-    UI.success("✨ Đã tạo cấu trúc Metadata & Screenshots cho [#{platform_norm.upcase}] (#{selected_locales.count} ngôn ngữ) tại: #{target_dir}")
+    relative_display = target_dir.sub(File.expand_path(File.join(__dir__, "..", "..")).to_s, "").sub(%r{^/}, "")
+    UI.success("✨ Đã tạo cấu trúc Metadata & Screenshots cho [#{platform_norm.upcase}] (#{selected_locales.count} ngôn ngữ) tại: #{relative_display}")
   end
 
-  resolve_metadata_path(app_key, target_platforms.first, options)
+  first_target_dir
 end
 
 # ==============================================================================

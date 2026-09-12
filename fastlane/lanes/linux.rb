@@ -10,7 +10,7 @@ platform :linux do
   lane :init_metadata do |options|
     app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane linux init_metadata app:OpsFlow_Hub")
     app_info = get_app_config(app_key)
-    init_app_metadata_template(app_key, app_info, "linux")
+    init_app_metadata_template(app_key, app_info, "linux", TOP_20_METADATA_LOCALES, options)
   end
 
   desc "Kiểm tra và chuẩn bị Metadata Linux cho phát hành (AppStream / Metainfo)"

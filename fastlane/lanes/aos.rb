@@ -148,7 +148,7 @@ platform :aos do
   lane :init_metadata do |options|
     app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane aos init_metadata app:OpsFlow_Hub")
     app_info = get_app_config(app_key)
-    init_app_metadata_template(app_key, app_info, "aos")
+    init_app_metadata_template(app_key, app_info, "aos", TOP_20_METADATA_LOCALES, options)
   end
 end
 
@@ -199,6 +199,6 @@ platform :android do
   lane :init_metadata do |options|
     app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane android init_metadata app:OpsFlow_Hub")
     app_info = get_app_config(app_key)
-    init_app_metadata_template(app_key, app_info, "aos")
+    init_app_metadata_template(app_key, app_info, "aos", TOP_20_METADATA_LOCALES, options)
   end
 end

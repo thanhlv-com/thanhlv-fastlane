@@ -21,7 +21,7 @@ end unless defined?(FastlaneCore::UI)
 
 UI = FastlaneCore::UI unless defined?(UI)
 
-# Trả về đường dẫn gốc của thư mục .workspace
+# Trả về đường dẫn gốc của thư mục .workspace (dùng cho build & package)
 def workspace_root_path
   File.expand_path(File.join(__dir__, "..", "..", ".workspace"))
 end
@@ -29,6 +29,36 @@ end
 # Trả về đường dẫn thư mục làm việc của app cụ thể trong .workspace
 def app_workspace_path(app_key)
   File.join(workspace_root_path, app_key.to_s)
+end
+
+# Trả về đường dẫn gốc của thư mục .workspace_code (chứa mã nguồn & metadata của các repo)
+def workspace_code_root_path
+  File.expand_path(File.join(__dir__, "..", "..", ".workspace_code"))
+end
+
+# Trả về đường dẫn thư mục repository của app trong .workspace_code
+def app_workspace_code_path(app_key, app_info = nil)
+  candidate_key = File.join(workspace_code_root_path, app_key.to_s)
+  return candidate_key if File.directory?(candidate_key)
+
+  if app_info.nil? && defined?(get_app_config)
+    begin
+      app_info = get_app_config(app_key) rescue nil
+    rescue
+      app_info = nil
+    end
+  end
+
+  if app_info
+    git_url = (app_info["git_url"] || app_info["git"]).to_s.strip
+    unless git_url.empty?
+      repo_name = File.basename(git_url, ".git").strip
+      candidate_repo = File.join(workspace_code_root_path, repo_name)
+      return candidate_repo if File.directory?(candidate_repo)
+    end
+  end
+
+  candidate_key
 end
 
 # Chuẩn hoá tên nền tảng (platform)
@@ -157,3 +187,46 @@ def run_flutter_cmd(command, working_dir)
     sh(full_cmd)
   end
 end
+
+# Đảm bảo app repository đã tồn tại trong .workspace_code. Nếu chưa có thì clone về từ Git repo.
+def ensure_app_workspace_code!(app_key, app_info = nil, options = {})
+  app_info ||= get_app_config(app_key)
+  target_dir = app_workspace_code_path(app_key, app_info)
+  git_dir = File.join(target_dir, ".git")
+
+  if File.exist?(git_dir)
+    UI.message("📂 Repo đã tồn tại trong .workspace_code: #{target_dir}")
+    return target_dir
+  end
+
+  # Chưa có -> clone về .workspace_code/<app_key>
+  git_url = options[:git_url] || app_info["git_url"] || app_info["git"]
+  git_branch = options[:branch] || options[:git_branch] || app_info["branch"] || app_info["git_branch"] || "main"
+
+  if git_url.nil? || git_url.to_s.strip.empty?
+    UI.user_error!("❌ Không tìm thấy 'git_url' trong cấu hình app '#{app_key}' (apps.json) để clone về .workspace_code!")
+  end
+
+  FileUtils.mkdir_p(workspace_code_root_path)
+  target_dir = File.join(workspace_code_root_path, app_key.to_s)
+
+  UI.message("🌐 ========================================================")
+  UI.message("🌐 Repo '#{app_key}' chưa có trong .workspace_code.")
+  UI.message("🌐 Đang clone từ #{git_url} (branch: #{git_branch}) về:")
+  UI.message("🌐 #{target_dir}")
+  UI.message("🌐 ========================================================")
+
+  FileUtils.mkdir_p(File.dirname(target_dir))
+
+  begin
+    sh("git clone --branch \"#{git_branch}\" \"#{git_url}\" \"#{target_dir}\"")
+  rescue => e
+    UI.important("⚠️ Không thể clone với --branch #{git_branch}, thử clone mặc định...")
+    sh("git clone \"#{git_url}\" \"#{target_dir}\"")
+    sh("git -C \"#{target_dir}\" checkout \"#{git_branch}\"") rescue nil
+  end
+
+  UI.success("🎉 Clone mã nguồn thành công về: #{target_dir}")
+  target_dir
+end
+

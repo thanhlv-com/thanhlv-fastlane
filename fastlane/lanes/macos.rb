@@ -353,6 +353,6 @@ platform :mac do
   lane :init_metadata do |options|
     app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane mac init_metadata app:OpsFlow_Hub")
     app_info = get_app_config(app_key)
-    init_app_metadata_template(app_key, app_info, "macos")
+    init_app_metadata_template(app_key, app_info, "macos", TOP_20_METADATA_LOCALES, options)
   end
 end
