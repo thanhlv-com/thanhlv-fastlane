@@ -1,5 +1,5 @@
 {
-  "OpsFlow_Hub": {
+  "CloudOps": {
     "app_name": "CloudOps Hub",
     "git_url": "git@github.com:thanhlv-com/dev-tool.git",
     "branch": "main",
