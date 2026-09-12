@@ -90,10 +90,62 @@ env:
   INPUT_SUBMIT_FOR_REVIEW: ${{ inputs.submit_for_review }}
 
 jobs:
+  # ============================================================================
+  # 1. Xác định danh sách nền tảng (Matrix) cần chạy dựa trên app và platform được chọn
+  # ============================================================================
+  prepare-matrix:
+    name: Prepare Platforms Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      platforms: ${{ steps.set-matrix.outputs.platforms }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Compute Target Platforms
+        id: set-matrix
+        env:
+          INPUT_APP: ${{ inputs.app }}
+          INPUT_PLATFORM: ${{ inputs.platform }}
+        run: |
+          ruby -rjson -e '
+            data = JSON.parse(File.read("fastlane/apps.json"))
+            app = ENV["INPUT_APP"].to_s.strip
+            platform = ENV["INPUT_PLATFORM"].to_s.strip.downcase
+
+            platforms = if platform != "all"
+              [platform]
+            elsif app != "all" && data[app] && data[app]["platforms"] && !data[app]["platforms"].empty?
+              data[app]["platforms"].map { |p| p.to_s.downcase.strip }.uniq
+            else
+              all_p = data.values.map { |v| v["platforms"] }.flatten.compact.map { |p| p.to_s.downcase.strip }.uniq
+              all_p.empty? ? ["ios", "macos", "aos"] : all_p
+            end
+
+            valid = ["ios", "macos", "aos", "windows", "linux"]
+            platforms = platforms.select { |p| valid.include?(p) }
+            platforms = ["ios", "macos", "aos"] if platforms.empty?
+
+            json_out = JSON.generate(platforms)
+            puts "Generated Platforms Matrix: #{json_out}"
+
+            File.open(ENV["GITHUB_OUTPUT"], "a") do |f|
+              f.puts "platforms=#{json_out}"
+            end
+          '
+
+  # ============================================================================
+  # 2. Thực thi Fastlane Metadata chạy song song theo từng nền tảng qua Matrix
+  # ============================================================================
   update-metadata:
-    name: Metadata (${{ inputs.app }} [${{ inputs.platform }}] -> ${{ inputs.action }})
+    name: Metadata (${{ inputs.app }} [${{ matrix.platform }}] -> ${{ inputs.action }})
+    needs: prepare-matrix
     runs-on: macos-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJson(needs.prepare-matrix.outputs.platforms) }}
 
     steps:
       - name: Checkout Repository
@@ -121,8 +173,8 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: true
 
-      # 4. Thực thi Fastlane Upload / Download Metadata theo từng platform
-      - name: Run Fastlane Metadata
+      # 4. Thực thi Fastlane Upload / Download Metadata cho nền tảng cụ thể trong ma trận
+      - name: Run Fastlane Metadata (${{ matrix.platform }})
         env:
           ASC_KEY_ID: ${{ env.CFG_ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ env.CFG_ASC_ISSUER_ID }}
@@ -136,16 +188,16 @@ jobs:
           CI: "true"
         run: |
           TARGET_APP="$INPUT_APP"
-          TARGET_PLATFORM="$INPUT_PLATFORM"
+          CURRENT_PLATFORM="${{ matrix.platform }}"
           ACTION_TYPE="$INPUT_ACTION"
           VERSION_ARG=""
           [ -n "$INPUT_VERSION" ] && VERSION_ARG="version:$INPUT_VERSION"
 
           EXTRA_ARGS="$VERSION_ARG upload_screenshots:$INPUT_UPLOAD_SCREENSHOTS submit_for_review:$INPUT_SUBMIT_FOR_REVIEW"
 
-          run_for_app_and_platform() {
+          run_for_app() {
             local app_key="$1"
-            local platform="$2"
+            local platform="$CURRENT_PLATFORM"
 
             echo "=================================================="
             echo "📝 Processing App: $app_key | Platform: $platform | Action: $ACTION_TYPE"
@@ -182,40 +234,30 @@ jobs:
             esac
           }
 
-          resolve_and_run() {
-            local app_key="$1"
-            local platform_req="$2"
-
-            if [ "$platform_req" = "all" ]; then
-              for p in ios macos aos windows linux; do
-                IS_SUPPORTED=$(jq -r --arg k "$app_key" --arg p "$p" '.[$k].platforms | if . == null then "yes" elif (map(ascii_downcase) | index($p)) then "yes" else "no" end' fastlane/apps.json)
-                if [ "$IS_SUPPORTED" = "yes" ]; then
-                  run_for_app_and_platform "$app_key" "$p"
-                fi
-              done
-            else
-              run_for_app_and_platform "$app_key" "$platform_req"
-            fi
-          }
-
           if [ "$TARGET_APP" = "all" ]; then
-            echo "🔍 Đang quét danh sách Apps từ fastlane/apps.json..."
-            ALL_APPS=$(jq -r 'keys[]' fastlane/apps.json)
-            for app_k in $ALL_APPS; do
-              resolve_and_run "$app_k" "$TARGET_PLATFORM"
+            echo "🔍 Đang quét các Apps hỗ trợ nền tảng $CURRENT_PLATFORM từ fastlane/apps.json..."
+            MATCHING_APPS=$(jq -r --arg p "$CURRENT_PLATFORM" 'to_entries[] | select(.value.platforms == null or (.value.platforms | map(ascii_downcase) | index($p))) | .key' fastlane/apps.json)
+            for app_k in $MATCHING_APPS; do
+              run_for_app "$app_k"
             done
           else
-            resolve_and_run "$TARGET_APP" "$TARGET_PLATFORM"
+            IS_SUPPORTED=$(jq -r --arg k "$TARGET_APP" --arg p "$CURRENT_PLATFORM" '.[$k].platforms | if . == null then "yes" elif (map(ascii_downcase) | index($p)) then "yes" else "no" end' fastlane/apps.json)
+            if [ "$IS_SUPPORTED" = "yes" ]; then
+              run_for_app "$TARGET_APP"
+            else
+              echo "⏩ Bỏ qua app $TARGET_APP vì không hỗ trợ nền tảng $CURRENT_PLATFORM."
+            fi
           fi
 
-      # 5. Upload Artifacts metadata sau khi thực thi
-      - name: Upload Metadata Artifacts
+      # 5. Upload Artifacts metadata sau khi thực thi (định danh theo từng platform trong ma trận)
+      - name: Upload Metadata Artifacts (${{ matrix.platform }})
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: multiplatform-metadata
+          name: metadata-${{ inputs.app }}-${{ matrix.platform }}
           path: |
             fastlane/metadata/
             .workspace/*/metadata/
+            .workspace_code/*/metadata/
           if-no-files-found: ignore
           retention-days: 14
