@@ -131,6 +131,20 @@
     "version": "1.0.0",
     "obfuscate": true,
     "description": "Đếm tiền mặt theo mệnh giá VND, lưu lịch sử kiểm quỹ và xuất báo cáo PDF."
+  },
+  "AR-Drawing": {
+    "app_name": "Sketcha: AR Drawing & Trace",
+    "git_url": "git@github.com:thanhlv-com/app-AR-Drawing.git",
+    "branch": "main",
+    "platforms": [
+      "ios",
+      "aos"
+    ],
+    "bundle_id": "com.thanhlv.appsketcharpro",
+    "package_name": "com.thanhlv.appsketcharpro",
+    "version": "1.0.0",
+    "obfuscate": true,
+    "description": "Trace to Sketch on Paper"
   }
 }
 
