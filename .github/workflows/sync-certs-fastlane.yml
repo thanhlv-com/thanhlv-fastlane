@@ -27,6 +27,7 @@ on:
           - "app-QuestFlow"
           - "app_Comparison_Table_App"
           - "app-dem-tien-vn"
+          - "AR-Drawing"
       type:
         description: "Loại Certificate / Profile"
         required: true
