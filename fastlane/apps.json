@@ -144,7 +144,7 @@
     "package_name": "com.thanhlv.appsketcharpro",
     "version": "1.0.0",
     "obfuscate": true,
-    "description": "Trace to Sketch on Paper"
+    "description": "Trace to Sketch on Paper with AR Camera and AI Outlines"
   }
 }
 

@@ -51,7 +51,7 @@ Chuẩn bị hoặc cập nhật mã nguồn trong .workspace cho 1 app
 [bundle exec] fastlane init_metadata
 ```
 
-Khởi tạo thư mục và các file Metadata template mẫu cho 1 app
+Khởi tạo thư mục và các file Metadata template mẫu cho 1 app (hoặc app:all)
 
 ### push_metadata
 
