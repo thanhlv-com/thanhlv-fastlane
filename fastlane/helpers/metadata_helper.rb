@@ -177,12 +177,18 @@ def resolve_screenshots_path(app_key, platform = "ios", options = {})
   platform_norm = normalize_platform_name(platform)
   metadata_dir = resolve_metadata_path(app_key, platform_norm, options)
 
-  screenshots_dir = if platform_norm == "aos" && Dir.exist?(File.join(metadata_dir, "images"))
-                      File.join(metadata_dir, "images")
-                    else
-                      File.join(metadata_dir, "screenshots")
-                    end
+  if platform_norm == "aos"
+    # Với Android (Google Play Supply), ảnh và screenshots bắt buộc phải nằm trong từng locale:
+    # <metadata_dir>/<locale>/images/<screenshot_type>/
+    # Không được tạo thư mục 'screenshots' hay 'images' trực tiếp ở gốc metadata_dir vì Supply sẽ coi đó là một ngôn ngữ và báo lỗi:
+    # "[!] images - Invalid request"
+    locale = options[:locale] || "en-US"
+    screenshots_dir = File.join(metadata_dir, locale, "images")
+    FileUtils.mkdir_p(screenshots_dir) unless Dir.exist?(screenshots_dir)
+    return screenshots_dir
+  end
 
+  screenshots_dir = File.join(metadata_dir, "screenshots")
   FileUtils.mkdir_p(screenshots_dir) unless Dir.exist?(screenshots_dir)
   screenshots_dir
 end
@@ -869,6 +875,15 @@ def init_aos_metadata_template(target_dir, app_name, description, locales = TOP_
     unless File.exist?(default_changelog)
       File.write(default_changelog, meta[:aos_changelog].slice(0, 500))
     end
+
+    # Khởi tạo thư mục ảnh theo chuẩn Fastlane Supply cho từng locale
+    # Fastlane Supply tìm ảnh theo đường dẫn: <metadata_dir>/<locale>/images/<screenshot_type>/
+    # KHÔNG ĐƯỢC tạo thư mục 'images' hay 'screenshots' ở gốc target_dir vì Supply sẽ coi đó là mã ngôn ngữ
+    images_dir = File.join(locale_dir, "images")
+    FileUtils.mkdir_p(File.join(images_dir, "phoneScreenshots"))
+    FileUtils.mkdir_p(File.join(images_dir, "sevenInchScreenshots"))
+    FileUtils.mkdir_p(File.join(images_dir, "tenInchScreenshots"))
+    FileUtils.touch(File.join(images_dir, "phoneScreenshots", ".gitkeep"))
   end
 
   general_files = {
@@ -881,17 +896,6 @@ def init_aos_metadata_template(target_dir, app_name, description, locales = TOP_
     file_path = File.join(target_dir, filename)
     File.write(file_path, content) unless File.exist?(file_path)
   end
-
-  # Khởi tạo thư mục ảnh Google Play gộp trong metadata của AOS
-  images_dir = File.join(target_dir, "images")
-  FileUtils.mkdir_p(File.join(images_dir, "phoneScreenshots"))
-  FileUtils.mkdir_p(File.join(images_dir, "sevenInchScreenshots"))
-  FileUtils.mkdir_p(File.join(images_dir, "tenInchScreenshots"))
-  FileUtils.touch(File.join(images_dir, "phoneScreenshots", ".gitkeep"))
-
-  screenshots_dir = File.join(target_dir, "screenshots")
-  FileUtils.mkdir_p(screenshots_dir)
-  FileUtils.touch(File.join(screenshots_dir, ".gitkeep"))
 end
 
 # Khởi tạo template cho Windows (Microsoft Store / MSIX / Winget)
@@ -1349,6 +1353,81 @@ def prepare_and_normalize_app_store_screenshots!(metadata_dir, screenshots_dir)
   stats
 end
 
+# Chuẩn hoá và đồng bộ thư mục screenshots cho Android / AOS trước khi gọi Supply
+# Fastlane Supply tìm screenshots tại: <metadata_dir>/<locale>/images/<screenshot_type>/*.png
+# Supply coi TẤT CẢ thư mục con trực tiếp trong metadata_dir là mã ngôn ngữ (Language).
+# Do đó, KHÔNG ĐƯỢC để thư mục 'images', 'screenshots', hay bất kỳ thư mục phi ngôn ngữ nào ở gốc metadata_dir.
+def prepare_and_normalize_aos_screenshots!(metadata_dir)
+  return unless metadata_dir && Dir.exist?(metadata_dir)
+
+  invalid_dir_names = ["images", "screenshots", "default", "review_information", "apk", "aab", "bundle"]
+
+  # Tìm các locale hợp lệ hiện có trong metadata_dir
+  locales = Dir.children(metadata_dir).select do |entry|
+    sub = File.join(metadata_dir, entry)
+    File.directory?(sub) && !entry.start_with?(".") && !invalid_dir_names.include?(entry)
+  end
+  locales = ["en-US"] if locales.empty?
+
+  root_images_dir = File.join(metadata_dir, "images")
+  root_screenshots_dir = File.join(metadata_dir, "screenshots")
+
+  type_mappings = {
+    "phoneScreenshots" => ["phoneScreenshots", "phone", "phones"],
+    "sevenInchScreenshots" => ["sevenInchScreenshots", "sevenInch", "7inch", "seven_inch"],
+    "tenInchScreenshots" => ["tenInchScreenshots", "tenInch", "10inch", "ten_inch"]
+  }
+
+  # 1. Quét và đồng bộ ảnh từ metadata_dir/images hoặc metadata_dir/screenshots vào từng locale
+  [root_images_dir, root_screenshots_dir].each do |base_dir|
+    next unless Dir.exist?(base_dir)
+
+    type_mappings.each do |target_type, aliases|
+      aliases.each do |alias_name|
+        candidate = File.join(base_dir, alias_name)
+        next unless Dir.exist?(candidate)
+
+        images = Dir.glob(File.join(candidate, "*.{png,jpg,jpeg,PNG,JPG,JPEG}")).uniq
+        next if images.empty?
+
+        locales.each do |loc|
+          target_dir = File.join(metadata_dir, loc, "images", target_type)
+          FileUtils.mkdir_p(target_dir)
+          images.each do |img|
+            dst = File.join(target_dir, File.basename(img))
+            FileUtils.cp(img, dst) unless File.exist?(dst) && FileUtils.identical?(img, dst)
+          end
+        end
+      end
+    end
+
+    # Nếu có ảnh nằm phẳng ở gốc base_dir (ví dụ: screenshots/*.png), chỉ đưa vào phoneScreenshots nếu chưa có ảnh
+    flat_images = Dir.glob(File.join(base_dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}")).uniq
+    unless flat_images.empty?
+      locales.each do |loc|
+        target_dir = File.join(metadata_dir, loc, "images", "phoneScreenshots")
+        existing_shots = Dir.glob(File.join(target_dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}"))
+        next unless existing_shots.empty?
+
+        FileUtils.mkdir_p(target_dir)
+        flat_images.each do |img|
+          dst = File.join(target_dir, File.basename(img))
+          FileUtils.cp(img, dst) unless File.exist?(dst)
+        end
+      end
+    end
+  end
+
+  # 2. Xoá bỏ hoàn toàn các thư mục không phải locale khỏi metadata_dir để Supply không xem chúng là ngôn ngữ
+  invalid_dir_names.each do |inv_name|
+    inv_dir = File.join(metadata_dir, inv_name)
+    if Dir.exist?(inv_dir)
+      UI.message("🧹 Dọn dẹp thư mục '#{inv_name}' ở gốc metadata AOS (đã đồng bộ vào locale/images/) để tránh lỗi Supply...")
+      FileUtils.rm_rf(inv_dir)
+    end
+  end
+end
+
 # Cập nhật metadata và screenshots từ local lên Store
 def upload_app_metadata_to_store(app_key, platform = "ios", options = {})
   if app_key.to_s.downcase == "all"
@@ -1461,6 +1540,10 @@ def upload_app_metadata_to_store(app_key, platform = "ios", options = {})
   when "aos"
     package_name = resolve_bundle_id(app_info, "aos", options)
     json_key_data = get_google_play_key(options)
+
+    # Chuẩn hoá và đồng bộ ảnh vào từng locale, dọn dẹp các thư mục non-locale như images/, screenshots/
+    # để tránh Fastlane Supply coi đó là ngôn ngữ và báo lỗi: "[!] images - Invalid request"
+    prepare_and_normalize_aos_screenshots!(metadata_dir)
 
     # Xử lý version code và changelogs
     # Google Play chỉ cho phép upload changelogs khi xác định được version_code cụ thể trên release track.
