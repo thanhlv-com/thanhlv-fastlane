@@ -149,3 +149,74 @@ def push_api_key_to_git(options = {})
     FileUtils.remove_entry(temp_dir) if File.exist?(temp_dir)
   end
 end
+
+# Tải và giải mã App Store Connect API Key từ MATCH_GIT_URL về thư mục fastlane/api_keys
+def pull_api_key_from_git(options = {})
+  clean_str = ->(v) { (v.nil? || v.to_s.strip.empty?) ? nil : v.to_s.strip }
+  requested_key_id = clean_str.call(options[:key_id]) || clean_str.call(ENV["ASC_KEY_ID"])
+  git_url = ENV["MATCH_GIT_URL"] || "git@github.com:thanhlv-com/apple-certificates-keystore.git"
+  git_branch = ENV["MATCH_GIT_BRANCH"] || "master"
+  match_password = clean_str.call(ENV["MATCH_PASSWORD"]) || UI.password("Nhập MATCH_PASSWORD để giải mã API Key:")
+
+  dest_dir = File.expand_path(File.join(__dir__, "..", "api_keys"))
+  FileUtils.mkdir_p(dest_dir)
+
+  temp_dir = Dir.mktmpdir("fastlane_pull_apple_key_")
+
+  begin
+    UI.message("🌐 Đang clone repo #{git_url} (branch: #{git_branch})...")
+    sh("git clone --depth 1 --branch #{git_branch} #{git_url} \"#{temp_dir}\"", log: false)
+
+    api_keys_dir = File.join(temp_dir, "api_keys")
+    unless Dir.exist?(api_keys_dir)
+      UI.user_error!("Không tìm thấy thư mục api_keys/ trong repo #{git_url}")
+    end
+
+    # Tìm các file key
+    candidates = if requested_key_id
+                   [
+                     File.join(api_keys_dir, "AuthKey_#{requested_key_id}.p8.enc"),
+                     File.join(api_keys_dir, "AuthKey_#{requested_key_id}.p8")
+                   ].select { |f| File.exist?(f) }
+                 else
+                   Dir.glob(File.join(api_keys_dir, "AuthKey_*.p8*"))
+                 end
+
+    if candidates.empty?
+      target_desc = requested_key_id ? "cho Key ID #{requested_key_id}" : ""
+      UI.user_error!("Không tìm thấy file AuthKey_*.p8.enc nào #{target_desc} trong thư mục api_keys/ của repo #{git_url}")
+    end
+
+    saved_files = []
+    candidates.each do |key_file|
+      base = File.basename(key_file)
+      match = base.match(/AuthKey_([A-Z0-9]+)\.p8/)
+      key_id = match ? match[1] : base.sub(/\.enc$/, '')
+      dest_filename = "AuthKey_#{key_id}.p8"
+      dest_file = File.join(dest_dir, dest_filename)
+
+      content = if key_file.end_with?(".enc")
+                  UI.message("🔓 Đang giải mã #{base} bằng MATCH_PASSWORD...")
+                  raw_decrypted = sh("openssl aes-256-cbc -d -pbkdf2 -in \"#{key_file}\" -pass pass:\"#{match_password}\"", log: false)
+                  raw_decrypted.to_s.force_encoding("UTF-8").encode("UTF-8", invalid: :replace, undef: :replace, replace: "").strip
+                else
+                  UI.important("⚠️ File #{base} không được mã hoá trên Git repo!")
+                  File.read(key_file).strip
+                end
+
+      unless content.include?("BEGIN PRIVATE KEY") || content.include?("BEGIN EC PRIVATE KEY")
+        UI.user_error!("Giải mã #{base} thất bại hoặc MATCH_PASSWORD không chính xác!")
+      end
+
+      File.write(dest_file, content + "\n")
+      File.chmod(0600, dest_file) rescue nil
+      saved_files << dest_file
+      UI.success("✔ Đã lưu và giải mã thành công: #{dest_file}")
+    end
+
+    UI.success("🎉 Hoàn tất tải #{saved_files.length} Apple API Key về: #{dest_dir}")
+    saved_files
+  ensure
+    FileUtils.remove_entry(temp_dir) if File.exist?(temp_dir)
+  end
+end

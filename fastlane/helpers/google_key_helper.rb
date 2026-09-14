@@ -287,3 +287,92 @@ def push_google_key_to_git(options = {})
     FileUtils.remove_entry(temp_dir) if File.exist?(temp_dir)
   end
 end
+
+# Tải và giải mã Google Play Service Account JSON Key từ MATCH_GIT_URL về thư mục fastlane/api_keys
+def pull_google_key_from_git(options = {})
+  requested_key = clean_param_value(options[:key_name]) || clean_param_value(ENV["GOOGLE_PLAY_KEY_NAME"])
+  git_url = ENV["MATCH_GIT_URL"] || "git@github.com:thanhlv-com/apple-certificates-keystore.git"
+  git_branch = ENV["MATCH_GIT_BRANCH"] || "master"
+  match_password = clean_param_value(ENV["MATCH_PASSWORD"]) || UI.password("Nhập MATCH_PASSWORD để giải mã Google Play Key:")
+
+  dest_dir = File.expand_path(File.join(__dir__, "..", "api_keys"))
+  FileUtils.mkdir_p(dest_dir)
+
+  temp_dir = Dir.mktmpdir("fastlane_pull_google_key_")
+
+  begin
+    UI.message("🌐 Đang clone repo #{git_url} (branch: #{git_branch})...")
+    sh("git clone --depth 1 --branch #{git_branch} #{git_url} \"#{temp_dir}\"", log: false)
+
+    search_dirs = [
+      File.join(temp_dir, "api_keys"),
+      File.join(temp_dir, "google_play_keys"),
+      File.join(temp_dir, "google_keys")
+    ].select { |d| Dir.exist?(d) }
+
+    candidates = []
+    if requested_key
+      clean_name = requested_key.sub(/\.enc$/, '').sub(/\.json$/, '')
+      search_dirs.each do |dir|
+        possible = [
+          File.join(dir, "#{clean_name}.json.enc"),
+          File.join(dir, "#{clean_name}.enc"),
+          File.join(dir, "#{requested_key}.enc"),
+          File.join(dir, "#{requested_key}"),
+          File.join(dir, "#{clean_name}.json")
+        ]
+        found = possible.find { |p| File.exist?(p) }
+        candidates << found if found
+      end
+    else
+      search_dirs.each do |dir|
+        encs = Dir.glob(File.join(dir, "*.json.enc")) +
+               Dir.glob(File.join(dir, "{chplay*,google*,play*,pc-api*}*.enc"))
+        candidates.concat(encs)
+
+        plains = Dir.glob(File.join(dir, "{chplay*,google*,play*,pc-api*}*.json"))
+        candidates.concat(plains)
+      end
+      candidates.uniq!
+    end
+
+    if candidates.empty?
+      target_desc = requested_key ? "cho '#{requested_key}'" : ""
+      UI.user_error!("Không tìm thấy file Google Play JSON key nào #{target_desc} trong repo #{git_url}")
+    end
+
+    saved_files = []
+    candidates.each do |key_file|
+      base = File.basename(key_file)
+      # Tên file đích bỏ đuôi .enc
+      dest_filename = base.sub(/\.enc$/, '')
+      dest_filename = "#{dest_filename}.json" unless dest_filename.end_with?(".json")
+      dest_file = File.join(dest_dir, dest_filename)
+
+      content = if key_file.end_with?(".enc")
+                  UI.message("🔓 Đang giải mã #{base} bằng MATCH_PASSWORD...")
+                  raw_decrypted = sh("openssl aes-256-cbc -d -pbkdf2 -in \"#{key_file}\" -pass pass:\"#{match_password}\"", log: false)
+                  raw_decrypted.to_s.force_encoding("UTF-8").encode("UTF-8", invalid: :replace, undef: :replace, replace: "").strip
+                else
+                  UI.important("⚠️ File #{base} chưa được mã hoá trên Git repo!")
+                  File.read(key_file).strip
+                end
+
+      begin
+        JSON.parse(content)
+      rescue => e
+        UI.user_error!("Giải mã #{base} thất bại hoặc MATCH_PASSWORD không chính xác! (#{e.message})")
+      end
+
+      File.write(dest_file, content + "\n")
+      File.chmod(0600, dest_file) rescue nil
+      saved_files << dest_file
+      UI.success("✔ Đã lưu và giải mã thành công: #{dest_file}")
+    end
+
+    UI.success("🎉 Hoàn tất tải #{saved_files.length} Google Play Key về: #{dest_dir}")
+    saved_files
+  ensure
+    FileUtils.remove_entry(temp_dir) if File.exist?(temp_dir)
+  end
+end

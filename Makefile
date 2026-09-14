@@ -7,7 +7,7 @@
         sync-workflows sync check-workflows check validate check-apps check-syntax check-all \
         install sync-workspace-code clone-workspace-code pull-workspace-code sync-code pull-code clone-code \
         prepare-workspace clean-workspace \
-        clean-certs clean-profiles push-api-key push-google-key sync-certs-ios sync-certs-mac register-app-ios register-app-mac \
+        clean-certs clean-profiles push-api-key pull-api-key push-google-key pull-google-key sync-certs-ios sync-certs-mac register-app-ios register-app-mac \
         ios-build ios-deploy mac-build mac-deploy aos-build aos-deploy windows-build linux-build \
         metadata-init metadata-pull metadata-push \
         ios-metadata-pull ios-metadata-push ios-metadata-download ios-metadata-upload \
@@ -82,8 +82,12 @@ help:
 	@echo "      Dọn dẹp Provisioning Profiles trên máy local."
 	@echo "  $(GREEN)make push-api-key FILE=<path_to_p8> [KEY_ID=...] [ISSUER_ID=...]$(RESET)"
 	@echo "      Mã hoá và push App Store Connect API Key (Apple) lên Match Git repo."
+	@echo "  $(GREEN)make pull-api-key [KEY_ID=...]$(RESET)"
+	@echo "      Tải và giải mã App Store Connect API Key từ Match Git repo về fastlane/api_keys."
 	@echo "  $(GREEN)make push-google-key [FILE=<path_to_json>] [KEY_NAME=...]$(RESET)"
 	@echo "      Mã hoá và push Google Play Service Account JSON Key lên Match Git repo."
+	@echo "  $(GREEN)make pull-google-key [KEY_NAME=...]$(RESET)"
+	@echo "      Tải và giải mã Google Play Service Account JSON Key từ Match Git repo về fastlane/api_keys."
 	@echo "  $(GREEN)make register-app-ios APP=<app_key>$(RESET)"
 	@echo "      Đăng ký Bundle Identifier & tạo App trên App Store Connect cho iOS."
 	@echo "  $(GREEN)make register-app-mac APP=<app_key>$(RESET)"
@@ -214,12 +218,24 @@ push-api-key:
 	[ -n "$(ISSUER_ID)" ] && ARGS="$$ARGS issuer_id:$(ISSUER_ID)"; \
 	fastlane push_api_key $$ARGS
 
+## Pull App Store Connect API Key từ Match Git repo về fastlane/api_keys
+pull-api-key:
+	@ARGS=""; \
+	[ -n "$(KEY_ID)" ] && ARGS="$$ARGS key_id:$(KEY_ID)"; \
+	fastlane pull_api_key $$ARGS
+
 ## Push Google Play Service Account JSON Key lên Match Git repo
 push-google-key:
 	@ARGS=""; \
 	[ -n "$(FILE)" ] && ARGS="$$ARGS filepath:$(FILE)"; \
 	[ -n "$(KEY_NAME)" ] && ARGS="$$ARGS key_name:$(KEY_NAME)"; \
 	fastlane push_google_key $$ARGS
+
+## Pull Google Play Service Account JSON Key từ Match Git repo về fastlane/api_keys
+pull-google-key:
+	@ARGS=""; \
+	[ -n "$(KEY_NAME)" ] && ARGS="$$ARGS key_name:$(KEY_NAME)"; \
+	fastlane pull_google_key $$ARGS
 
 ## Đồng bộ certs qua Match cho iOS
 sync-certs-ios:

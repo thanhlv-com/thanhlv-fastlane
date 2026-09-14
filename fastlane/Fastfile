@@ -19,9 +19,19 @@ lane :push_api_key do |options|
   push_api_key_to_git(options)
 end
 
+desc "Tải và giải mã App Store Connect API Key từ MATCH_GIT_URL về fastlane/api_keys"
+lane :pull_api_key do |options|
+  pull_api_key_from_git(options)
+end
+
 desc "Mã hoá và push Google Play Service Account JSON Key lên MATCH_GIT_URL"
 lane :push_google_key do |options|
   push_google_key_to_git(options)
+end
+
+desc "Tải và giải mã Google Play Service Account JSON Key từ MATCH_GIT_URL về fastlane/api_keys"
+lane :pull_google_key do |options|
+  pull_google_key_from_git(options)
 end
 
 desc "Dọn dẹp các Certificate & Provisioning Profile cũ/hết hạn trên máy local"

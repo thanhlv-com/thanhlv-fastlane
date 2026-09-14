@@ -21,6 +21,14 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 Mã hoá và push App Store Connect API Key lên MATCH_GIT_URL
 
+### pull_api_key
+
+```sh
+[bundle exec] fastlane pull_api_key
+```
+
+Tải và giải mã App Store Connect API Key từ MATCH_GIT_URL về fastlane/api_keys
+
 ### push_google_key
 
 ```sh
@@ -28,6 +36,14 @@ Mã hoá và push App Store Connect API Key lên MATCH_GIT_URL
 ```
 
 Mã hoá và push Google Play Service Account JSON Key lên MATCH_GIT_URL
+
+### pull_google_key
+
+```sh
+[bundle exec] fastlane pull_google_key
+```
+
+Tải và giải mã Google Play Service Account JSON Key từ MATCH_GIT_URL về fastlane/api_keys
 
 ### clean_local_certs
 

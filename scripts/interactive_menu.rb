@@ -362,7 +362,9 @@ class InteractiveMenu
       { label: "🍎 Đồng bộ Certificates iOS qua Match", value: "sync_ios" },
       { label: "💻 Đồng bộ Certificates macOS qua Match", value: "sync_mac" },
       { label: "🍏 Mã hoá và Push App Store Connect API Key (Apple .p8) lên Match Git", value: "push_apple_key" },
+      { label: "📥 Pull và giải mã App Store Connect API Key (Apple .p8) từ Match Git", value: "pull_apple_key" },
       { label: "🤖 Mã hoá và Push Google Play JSON Key (AOS .json) lên Match Git", value: "push_google_key" },
+      { label: "📥 Pull và giải mã Google Play JSON Key (AOS .json) từ Match Git", value: "pull_google_key" },
       { label: "🧹 Dọn dẹp Certificates & Profiles cũ trên máy local", value: "clean_certs" }
     ])
 
@@ -390,10 +392,22 @@ class InteractiveMenu
       cmd += " FILE=#{file_path}" unless file_path.to_s.empty?
       execute_command(cmd)
 
+    when "pull_apple_key"
+      key_id = prompt_input("Nhập Key ID (để trống sẽ tự động tìm)", "")
+      cmd = "make pull-api-key"
+      cmd += " KEY_ID=#{key_id}" unless key_id.to_s.empty?
+      execute_command(cmd)
+
     when "push_google_key"
       file_path = prompt_input("Nhập đường dẫn file Google Play JSON key (để trống sẽ tự động tìm)", "")
       cmd = "make push-google-key"
       cmd += " FILE=#{file_path}" unless file_path.to_s.empty?
+      execute_command(cmd)
+
+    when "pull_google_key"
+      key_name = prompt_input("Nhập Key name (để trống sẽ tự động tìm)", "")
+      cmd = "make pull-google-key"
+      cmd += " KEY_NAME=#{key_name}" unless key_name.to_s.empty?
       execute_command(cmd)
 
     when "clean_certs"
