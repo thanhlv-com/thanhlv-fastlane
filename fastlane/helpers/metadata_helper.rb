@@ -227,7 +227,7 @@ def normalize_locale_for_platform(locale, platform)
   if norm_p == "aos"
     # Chuẩn locale cho Google Play Store (Supply)
     case loc_str
-    when "vi", "vi_VN" then "vi-VN"
+    when "vi", "vi-VN", "vi_VN" then "vi"
     when "zh-Hans", "zh-CN", "zh_CN", "zh" then "zh-CN"
     when "zh-Hant", "zh-TW", "zh_TW", "zh-HK", "zh_HK" then "zh-TW"
     when "ja", "ja_JP" then "ja-JP"
