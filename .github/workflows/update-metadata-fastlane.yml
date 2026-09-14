@@ -47,8 +47,28 @@ on:
         required: false
         default: ""
         type: string
+      version_code:
+        description: "Version Code / Build Number (Tùy chọn cho AOS, ví dụ: 12. Dùng khi muốn upload Changelogs)"
+        required: false
+        default: ""
+        type: string
+      track:
+        description: "Google Play Track (khi upload AOS metadata/changelogs)"
+        required: false
+        default: "production"
+        type: choice
+        options:
+          - production
+          - internal
+          - alpha
+          - beta
       upload_screenshots:
-        description: "Upload kèm Screenshots (chỉ áp dụng khi action = upload)"
+        description: "Upload kèm Screenshots (chỉ áp dụng khi action = upload / push)"
+        required: false
+        default: false
+        type: boolean
+      upload_changelogs:
+        description: "Upload kèm Changelogs / Release Notes (áp dụng cho AOS khi có version_code)"
         required: false
         default: false
         type: boolean
@@ -80,14 +100,19 @@ env:
   CFG_MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD || 'ci_secure_keychain_pass' }}
 
   # Google Play Secrets (AOS)
+  CFG_SUPPLY_JSON_KEY: ${{ secrets.SUPPLY_JSON_KEY }}
   CFG_SUPPLY_JSON_KEY_DATA: ${{ secrets.PLAY_STORE_JSON_KEY || secrets.SUPPLY_JSON_KEY_DATA }}
+  CFG_GOOGLE_PLAY_KEY_FILE: ${{ secrets.GOOGLE_PLAY_KEY_FILE }}
 
   # Workflow Inputs
   INPUT_APP: ${{ inputs.app }}
   INPUT_PLATFORM: ${{ inputs.platform }}
   INPUT_ACTION: ${{ inputs.action }}
   INPUT_VERSION: ${{ inputs.version }}
+  INPUT_VERSION_CODE: ${{ inputs.version_code }}
+  INPUT_TRACK: ${{ inputs.track }}
   INPUT_UPLOAD_SCREENSHOTS: ${{ inputs.upload_screenshots }}
+  INPUT_UPLOAD_CHANGELOGS: ${{ inputs.upload_changelogs }}
   INPUT_SUBMIT_FOR_REVIEW: ${{ inputs.submit_for_review }}
 
 jobs:
@@ -141,7 +166,7 @@ jobs:
   update-metadata:
     name: Metadata (${{ inputs.app }} [${{ matrix.platform }}] -> ${{ inputs.action }})
     needs: prepare-matrix
-    runs-on: macos-latest
+    runs-on: ${{ (matrix.platform == 'ios' || matrix.platform == 'macos') && 'macos-latest' || 'ubuntu-latest' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -185,7 +210,9 @@ jobs:
           MATCH_PASSWORD: ${{ env.CFG_MATCH_PASSWORD }}
           MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ env.GH_REPO_OWNER }}/${{ env.KEYSTORE_REPO_NAME }}.git"
           MATCH_KEYCHAIN_PASSWORD: ${{ env.CFG_MATCH_KEYCHAIN_PASSWORD }}
+          SUPPLY_JSON_KEY: ${{ env.CFG_SUPPLY_JSON_KEY }}
           SUPPLY_JSON_KEY_DATA: ${{ env.CFG_SUPPLY_JSON_KEY_DATA }}
+          GOOGLE_PLAY_KEY_FILE: ${{ env.CFG_GOOGLE_PLAY_KEY_FILE }}
           CI: "true"
         run: |
           TARGET_APP="$INPUT_APP"
@@ -195,6 +222,15 @@ jobs:
           [ -n "$INPUT_VERSION" ] && VERSION_ARG="version:$INPUT_VERSION"
 
           EXTRA_ARGS="$VERSION_ARG upload_screenshots:$INPUT_UPLOAD_SCREENSHOTS submit_for_review:$INPUT_SUBMIT_FOR_REVIEW"
+          if [ -n "$INPUT_VERSION_CODE" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS version_code:$INPUT_VERSION_CODE"
+          fi
+          if [ -n "$INPUT_TRACK" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS track:$INPUT_TRACK"
+          fi
+          if [ -n "$INPUT_UPLOAD_CHANGELOGS" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS upload_changelogs:$INPUT_UPLOAD_CHANGELOGS"
+          fi
 
           run_for_app() {
             local app_key="$1"

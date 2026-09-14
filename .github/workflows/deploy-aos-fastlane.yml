@@ -28,6 +28,7 @@ on:
         options:
           - deploy
           - build_only
+          - upload_metadata
       track:
         description: "Track Google Play Console (khi chọn action = deploy)"
         required: true
@@ -200,6 +201,8 @@ jobs:
               echo "=================================================="
               if [ "$ACTION_TYPE" = "deploy" ]; then
                 bundle exec fastlane aos deploy app:$app_key track:$RELEASE_TRACK $EXTRA_ARGS || exit 1
+              elif [ "$ACTION_TYPE" = "upload_metadata" ]; then
+                bundle exec fastlane aos upload_metadata app:$app_key $EXTRA_ARGS || exit 1
               else
                 bundle exec fastlane aos build app:$app_key type:$OUTPUT_TYPE $EXTRA_ARGS || exit 1
               fi
@@ -208,6 +211,8 @@ jobs:
             echo "🚀 Đang xử lý ($ACTION_TYPE): $TARGET_APP"
             if [ "$ACTION_TYPE" = "deploy" ]; then
               bundle exec fastlane aos deploy app:$TARGET_APP track:$RELEASE_TRACK $EXTRA_ARGS
+            elif [ "$ACTION_TYPE" = "upload_metadata" ]; then
+              bundle exec fastlane aos upload_metadata app:$TARGET_APP $EXTRA_ARGS
             else
               bundle exec fastlane aos build app:$TARGET_APP type:$OUTPUT_TYPE $EXTRA_ARGS
             fi
