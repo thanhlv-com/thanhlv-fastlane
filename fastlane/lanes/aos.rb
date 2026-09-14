@@ -70,20 +70,8 @@ def deploy_aos_app(options)
     UI.user_error!("Không tìm thấy file AAB sau khi build để upload lên Google Play!")
   end
 
-  # 2. Upload lên Google Play Store qua Fastlane Supply
-  # Xoá các biến môi trường rỗng để tránh Fastlane Supply tự động kiểm tra verify_block với giá trị ''
-  ENV.delete("SUPPLY_JSON_KEY") if ENV["SUPPLY_JSON_KEY"].to_s.strip.empty?
-  ENV.delete("GOOGLE_PLAY_KEY_FILE") if ENV["GOOGLE_PLAY_KEY_FILE"].to_s.strip.empty?
-  ENV.delete("SUPPLY_JSON_KEY_DATA") if ENV["SUPPLY_JSON_KEY_DATA"].to_s.strip.empty?
-
-  json_key = ENV["SUPPLY_JSON_KEY"] || ENV["GOOGLE_PLAY_KEY_FILE"] || options[:json_key]
-  json_key_data = ENV["SUPPLY_JSON_KEY_DATA"] || options[:json_key_data]
-
-  # Nếu dùng json_key_data, đảm bảo xoá hẳn SUPPLY_JSON_KEY khỏi ENV để tránh Fastlane ưu tiên nhầm
-  if json_key_data && !json_key_data.empty?
-    ENV.delete("SUPPLY_JSON_KEY")
-    ENV.delete("GOOGLE_PLAY_KEY_FILE")
-  end
+  # 2. Lấy thông tin xác thực Google Play (Ưu tiên SUPPLY_JSON_KEY_DATA, file JSON local, hoặc tải & giải mã từ MATCH_GIT_URL)
+  json_key_data = get_google_play_key(options)
 
   UI.message("🚀 Đang upload AAB lên Google Play Console (Track: #{track}, Package: #{package_name})...")
   
@@ -92,10 +80,9 @@ def deploy_aos_app(options)
     aab: aab_file,
     track: track,
     skip_upload_images: true,
-    skip_upload_screenshots: true
+    skip_upload_screenshots: true,
+    json_key_data: json_key_data
   }
-  supply_args[:json_key] = json_key if json_key && !json_key.empty?
-  supply_args[:json_key_data] = json_key_data if json_key_data && !json_key_data.empty?
 
   upload_to_play_store(supply_args)
   UI.success("🎉 Phát hành thành công #{app_info['app_name']} (#{package_name}) lên Google Play Store track #{track}!")

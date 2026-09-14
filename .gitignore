@@ -22,3 +22,13 @@ fastlane/report.xml
 *.apk
 *.aab
 *.dSYM.zip
+
+# OS files
+.DS_Store
+
+# Private keys and service account credentials
+*.p8
+fastlane/chplay-console-*.json
+fastlane/google-play-key*.json
+fastlane/play-store-*.json
+fastlane/pc-api-*.json

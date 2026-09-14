@@ -7,7 +7,7 @@
         sync-workflows sync check-workflows check validate check-apps check-syntax check-all \
         install sync-workspace-code clone-workspace-code pull-workspace-code sync-code pull-code clone-code \
         prepare-workspace clean-workspace \
-        clean-certs clean-profiles push-api-key sync-certs-ios sync-certs-mac register-app-ios register-app-mac \
+        clean-certs clean-profiles push-api-key push-google-key push-play-key sync-certs-ios sync-certs-mac register-app-ios register-app-mac \
         ios-build ios-deploy mac-build mac-deploy aos-build aos-deploy windows-build linux-build \
         metadata-init metadata-pull metadata-push \
         ios-metadata-pull ios-metadata-push ios-metadata-download ios-metadata-upload \
@@ -81,7 +81,10 @@ help:
 	@echo "  $(GREEN)make clean-profiles$(RESET)"
 	@echo "      Dọn dẹp Provisioning Profiles trên máy local."
 	@echo "  $(GREEN)make push-api-key FILE=<path_to_p8> [KEY_ID=...] [ISSUER_ID=...]$(RESET)"
-	@echo "      Mã hoá và push App Store Connect API Key lên Match Git repo."
+	@echo "      Mã hoá và push App Store Connect API Key (Apple) lên Match Git repo."
+	@echo "  $(GREEN)make push-google-key [FILE=<path_to_json>] [KEY_NAME=...]$(RESET)"
+	@echo "      (Alias: $(GREEN)make push-play-key$(RESET))"
+	@echo "      Mã hoá và push Google Play Service Account JSON Key lên Match Git repo."
 	@echo "  $(GREEN)make register-app-ios APP=<app_key>$(RESET)"
 	@echo "      Đăng ký Bundle Identifier & tạo App trên App Store Connect cho iOS."
 	@echo "  $(GREEN)make register-app-mac APP=<app_key>$(RESET)"
@@ -207,6 +210,12 @@ clean-profiles:
 ## Push App Store Connect API Key lên Match Git repo
 push-api-key:
 	fastlane push_api_key filepath:$${FILE:-} key_id:$${KEY_ID:-} issuer_id:$${ISSUER_ID:-}
+
+## Push Google Play Service Account JSON Key lên Match Git repo
+push-google-key:
+	fastlane push_google_key filepath:$${FILE:-} key_name:$${KEY_NAME:-}
+
+push-play-key: push-google-key
 
 ## Đồng bộ certs qua Match cho iOS
 sync-certs-ios:

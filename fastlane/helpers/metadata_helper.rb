@@ -23,6 +23,7 @@ UI = FastlaneCore::UI unless defined?(UI)
 
 require_relative 'app_config_helper' unless defined?(get_app_config)
 require_relative 'git_workspace_helper' unless defined?(ensure_app_workspace_code!)
+require_relative 'google_key_helper' unless defined?(get_google_play_key)
 
 # Danh sách toàn bộ các nền tảng hỗ trợ
 SUPPORTED_METADATA_PLATFORMS = ["ios", "macos", "aos", "windows", "linux"].freeze
@@ -1255,8 +1256,7 @@ def download_app_metadata_from_store(app_key, platform = "ios", options = {})
     end
   when "aos"
     package_name = resolve_bundle_id(app_info, "aos", options)
-    json_key = ENV["SUPPLY_JSON_KEY"] || ENV["GOOGLE_PLAY_KEY_FILE"] || options[:json_key]
-    json_key_data = ENV["SUPPLY_JSON_KEY_DATA"] || options[:json_key_data]
+    json_key_data = get_google_play_key(options)
 
     supply_args = {
       package_name: package_name,
@@ -1264,10 +1264,9 @@ def download_app_metadata_from_store(app_key, platform = "ios", options = {})
       skip_upload_aab: true,
       skip_upload_apk: true,
       skip_upload_images: skip_screenshots,
-      skip_upload_screenshots: skip_screenshots
+      skip_upload_screenshots: skip_screenshots,
+      json_key_data: json_key_data
     }
-    supply_args[:json_key] = json_key if json_key && !json_key.empty?
-    supply_args[:json_key_data] = json_key_data if json_key_data && !json_key_data.empty?
 
     sh("bundle exec fastlane supply init --package_name #{package_name} --metadata_path #{metadata_dir}") rescue nil
   when "windows", "linux"
@@ -1461,8 +1460,7 @@ def upload_app_metadata_to_store(app_key, platform = "ios", options = {})
 
   when "aos"
     package_name = resolve_bundle_id(app_info, "aos", options)
-    json_key = ENV["SUPPLY_JSON_KEY"] || ENV["GOOGLE_PLAY_KEY_FILE"] || options[:json_key]
-    json_key_data = ENV["SUPPLY_JSON_KEY_DATA"] || options[:json_key_data]
+    json_key_data = get_google_play_key(options)
 
     supply_args = {
       package_name: package_name,
@@ -1472,10 +1470,9 @@ def upload_app_metadata_to_store(app_key, platform = "ios", options = {})
       skip_upload_images: skip_screenshots,
       skip_upload_screenshots: skip_screenshots,
       skip_upload_changelogs: false,
-      check_superseded_tracks: true
+      check_superseded_tracks: true,
+      json_key_data: json_key_data
     }
-    supply_args[:json_key] = json_key if json_key && !json_key.empty?
-    supply_args[:json_key_data] = json_key_data if json_key_data && !json_key_data.empty?
 
     upload_to_play_store(supply_args)
 

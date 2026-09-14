@@ -40,7 +40,7 @@ class InteractiveMenu
       puts "  #{GREEN}3)#{RESET} 📥 Pull Metadata & Screenshots (Từ Store về Local để sửa)"
       puts "  #{GREEN}4)#{RESET} 📤 Push Metadata & Screenshots (Từ Local lên Store)"
       puts "  #{GREEN}5)#{RESET} 📝 Khởi tạo thư mục Metadata template mẫu (Init)"
-      puts "  #{GREEN}6)#{RESET} 🔑 Đồng bộ Certificates & Profiles (Match)"
+      puts "  #{GREEN}6)#{RESET} 🔑 Quản lý Certificates & API Keys (Match, Apple & Google Play)"
       puts "  #{GREEN}7)#{RESET} 📦 Quản lý Workspace (Clone / Update source code)"
       puts "  #{GREEN}8)#{RESET} 🎯 Đồng bộ GitHub Actions Workflows (Sync Choices)"
       puts "  #{GREEN}9)#{RESET} 🔍 Kiểm tra toàn diện hệ thống (Check All)"
@@ -358,25 +358,47 @@ class InteractiveMenu
   # ============================================================================
 
   def handle_sync_certs
-    platform = prompt_choice("Chọn Nền Tảng Đồng Bộ Certs", [
-      { label: "🍎 iOS", value: "ios" },
-      { label: "💻 macOS", value: "mac" }
+    action = prompt_choice("Chọn Thao Tác Quản Lý Certs & API Keys", [
+      { label: "🍎 Đồng bộ Certificates iOS qua Match", value: "sync_ios" },
+      { label: "💻 Đồng bộ Certificates macOS qua Match", value: "sync_mac" },
+      { label: "🍏 Mã hoá và Push App Store Connect API Key (Apple .p8) lên Match Git", value: "push_apple_key" },
+      { label: "🤖 Mã hoá và Push Google Play JSON Key (AOS .json) lên Match Git", value: "push_google_key" },
+      { label: "🧹 Dọn dẹp Certificates & Profiles cũ trên máy local", value: "clean_certs" }
     ])
 
-    app_key = select_app(platform == "mac" ? "macos" : "ios", true)
-    return unless app_key
+    case action
+    when "sync_ios", "sync_mac"
+      platform = (action == "sync_mac") ? "mac" : "ios"
+      app_key = select_app(platform == "mac" ? "macos" : "ios", true)
+      return unless app_key
 
-    cert_type = prompt_choice("Chọn Loại Certificate", [
-      { label: "App Store (Distribution)", value: "appstore" },
-      { label: "Development", value: "development" },
-      { label: "Developer ID (macOS Direct Distribution)", value: "developer_id" }
-    ])
+      cert_type = prompt_choice("Chọn Loại Certificate", [
+        { label: "App Store (Distribution)", value: "appstore" },
+        { label: "Development", value: "development" },
+        { label: "Developer ID (macOS Direct Distribution)", value: "developer_id" }
+      ])
 
-    readonly = prompt_confirm("Chạy ở chế độ Readonly (Không tạo mới cert nếu thiếu)?", true)
+      readonly = prompt_confirm("Chạy ở chế độ Readonly (Không tạo mới cert nếu thiếu)?", true)
 
-    app_arg = (app_key == "all") ? "" : " APP=#{app_key}"
-    cmd = "make sync-certs-#{platform}#{app_arg} TYPE=#{cert_type} READONLY=#{readonly}"
-    execute_command(cmd)
+      app_arg = (app_key == "all") ? "" : " APP=#{app_key}"
+      cmd = "make sync-certs-#{platform}#{app_arg} TYPE=#{cert_type} READONLY=#{readonly}"
+      execute_command(cmd)
+
+    when "push_apple_key"
+      file_path = prompt_input("Nhập đường dẫn file AuthKey_*.p8 (để trống sẽ tự động tìm)", "")
+      cmd = "make push-api-key"
+      cmd += " FILE=#{file_path}" unless file_path.to_s.empty?
+      execute_command(cmd)
+
+    when "push_google_key"
+      file_path = prompt_input("Nhập đường dẫn file Google Play JSON key (để trống sẽ tự động tìm)", "")
+      cmd = "make push-google-key"
+      cmd += " FILE=#{file_path}" unless file_path.to_s.empty?
+      execute_command(cmd)
+
+    when "clean_certs"
+      execute_command("make clean-certs && make clean-profiles")
+    end
   end
 
   # ============================================================================

@@ -83,8 +83,12 @@ env:
   GH_APP_ID: "3766151"
   GH_APP_PRIVATE_KEY: ${{ secrets.THANHLV_PRIVATE_KEY }}
   GH_REPO_OWNER: ${{ github.repository_owner }}
+  KEYSTORE_REPO_NAME: "apple-certificates-keystore"
 
-  # Google Play Console Secrets
+  # Fastlane Match Secrets
+  CFG_MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+
+  # Google Play Console Secrets (Fallback nếu không dùng Match repo)
   CFG_SUPPLY_JSON_KEY: ${{ secrets.SUPPLY_JSON_KEY }}
   CFG_SUPPLY_JSON_KEY_DATA: ${{ secrets.SUPPLY_JSON_KEY_DATA }}
   CFG_GOOGLE_PLAY_KEY_FILE: ${{ secrets.GOOGLE_PLAY_KEY_FILE }}
@@ -153,6 +157,8 @@ jobs:
           SUPPLY_JSON_KEY: ${{ env.CFG_SUPPLY_JSON_KEY }}
           SUPPLY_JSON_KEY_DATA: ${{ env.CFG_SUPPLY_JSON_KEY_DATA }}
           GOOGLE_PLAY_KEY_FILE: ${{ env.CFG_GOOGLE_PLAY_KEY_FILE }}
+          MATCH_PASSWORD: ${{ env.CFG_MATCH_PASSWORD }}
+          MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ env.GH_REPO_OWNER }}/${{ env.KEYSTORE_REPO_NAME }}.git"
           CI: "true"
         run: |
           # Map các biến nội bộ trong bash

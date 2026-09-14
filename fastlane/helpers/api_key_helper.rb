@@ -39,7 +39,8 @@ def fetch_key_from_match_git(key_id, match_password)
 
     if File.exist?(enc_key_file)
       UI.message("🔓 Đang giải mã AuthKey_#{key_id}.p8.enc bằng MATCH_PASSWORD...")
-      decrypted = sh("openssl aes-256-cbc -d -pbkdf2 -in \"#{enc_key_file}\" -pass pass:\"#{match_password}\"", log: false).strip
+      raw_decrypted = sh("openssl aes-256-cbc -d -pbkdf2 -in \"#{enc_key_file}\" -pass pass:\"#{match_password}\"", log: false)
+      decrypted = raw_decrypted.to_s.force_encoding("UTF-8").encode("UTF-8", invalid: :replace, undef: :replace, replace: "").strip
       return decrypted
     elsif File.exist?(plain_key_file)
       UI.important("⚠️ Cảnh báo: File AuthKey_#{key_id}.p8 chưa được mã hoá trên Git repo!")
@@ -128,6 +129,7 @@ def push_api_key_to_git(options)
     sh("openssl aes-256-cbc -salt -pbkdf2 -in \"#{File.expand_path(key_path)}\" -out \"#{target_enc_file}\" -pass pass:\"#{match_password}\"", log: false)
 
     UI.message("🚀 Đang commit và push lên #{git_url}...")
+    sh("cd \"#{temp_dir}\" && git config user.name \"Fastlane CI\" && git config user.email \"fastlane@thanhlv.com\"") rescue nil
     sh("cd \"#{temp_dir}\" && git add api_keys/AuthKey_#{key_id}.p8.enc && git commit -m \"Add encrypted App Store Connect API Key for #{key_id}\" && git push origin #{git_branch}")
 
     UI.success("🎉 Đã mã hoá và push thành công API Key lên #{git_url} (thư mục api_keys/)!")
