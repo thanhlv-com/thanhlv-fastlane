@@ -24,11 +24,6 @@ lane :push_google_key do |options|
   push_google_key_to_git(options)
 end
 
-desc "Mã hoá và push Google Play Key lên MATCH_GIT_URL (alias: push_google_key)"
-lane :push_play_key do |options|
-  push_google_key(options)
-end
-
 desc "Dọn dẹp các Certificate & Provisioning Profile cũ/hết hạn trên máy local"
 lane :clean_local_certs do |options|
   clean_old_local_certs(options)
