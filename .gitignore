@@ -28,6 +28,8 @@ fastlane/report.xml
 
 # Private keys and service account credentials
 *.p8
+fastlane/api_keys/*
+!fastlane/api_keys/.gitkeep
 fastlane/chplay-console-*.json
 fastlane/google-play-key*.json
 fastlane/play-store-*.json

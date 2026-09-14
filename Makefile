@@ -208,11 +208,18 @@ clean-profiles:
 
 ## Push App Store Connect API Key lên Match Git repo
 push-api-key:
-	fastlane push_api_key filepath:$${FILE:-} key_id:$${KEY_ID:-} issuer_id:$${ISSUER_ID:-}
+	@ARGS=""; \
+	[ -n "$(FILE)" ] && ARGS="$$ARGS filepath:$(FILE)"; \
+	[ -n "$(KEY_ID)" ] && ARGS="$$ARGS key_id:$(KEY_ID)"; \
+	[ -n "$(ISSUER_ID)" ] && ARGS="$$ARGS issuer_id:$(ISSUER_ID)"; \
+	fastlane push_api_key $$ARGS
 
 ## Push Google Play Service Account JSON Key lên Match Git repo
 push-google-key:
-	fastlane push_google_key filepath:$${FILE:-} key_name:$${KEY_NAME:-}
+	@ARGS=""; \
+	[ -n "$(FILE)" ] && ARGS="$$ARGS filepath:$(FILE)"; \
+	[ -n "$(KEY_NAME)" ] && ARGS="$$ARGS key_name:$(KEY_NAME)"; \
+	fastlane push_google_key $$ARGS
 
 ## Đồng bộ certs qua Match cho iOS
 sync-certs-ios:

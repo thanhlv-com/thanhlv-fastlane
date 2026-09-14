@@ -32,28 +32,41 @@ end unless defined?(FastlaneCore::UI)
 
 UI = FastlaneCore::UI unless defined?(UI)
 
+# Làm sạch giá trị tham số (trả về nil nếu nil hoặc chuỗi rỗng)
+def clean_param_value(val)
+  return nil if val.nil?
+  str = val.to_s.strip
+  str.empty? ? nil : str
+end
+
 # Tự động phát hiện file JSON Service Account Google Play trên máy local
 def auto_detect_google_key_file
   # 1. Biến môi trường chỉ định rõ đường dẫn
-  return File.expand_path(ENV["SUPPLY_JSON_KEY"]) if ENV["SUPPLY_JSON_KEY"] && File.exist?(File.expand_path(ENV["SUPPLY_JSON_KEY"]))
-  return File.expand_path(ENV["GOOGLE_PLAY_KEY_FILE"]) if ENV["GOOGLE_PLAY_KEY_FILE"] && File.exist?(File.expand_path(ENV["GOOGLE_PLAY_KEY_FILE"]))
+  supply_key = clean_param_value(ENV["SUPPLY_JSON_KEY"])
+  return File.expand_path(supply_key) if supply_key && File.file?(File.expand_path(supply_key))
+
+  play_key = clean_param_value(ENV["GOOGLE_PLAY_KEY_FILE"])
+  return File.expand_path(play_key) if play_key && File.file?(File.expand_path(play_key))
 
   fastlane_dir = File.expand_path(File.join(__dir__, ".."))
   root_dir = File.expand_path(File.join(fastlane_dir, ".."))
+  api_keys_dir = File.join(fastlane_dir, "api_keys")
 
-  # 2. Tìm theo pattern tên phổ biến trong fastlane/ và thư mục gốc
+  # 2. Tìm theo pattern tên phổ biến trong fastlane/api_keys/, fastlane/ và thư mục gốc
   search_patterns = [
+    File.join(api_keys_dir, "{chplay-console*,google-play-key*,play-store*,pc-api*}*.json"),
+    File.join(api_keys_dir, "*.json"),
     File.join(fastlane_dir, "{chplay-console*,google-play-key*,play-store*,pc-api*}*.json"),
     File.join(root_dir, "{chplay-console*,google-play-key*,play-store*,pc-api*}*.json")
   ]
 
   search_patterns.each do |pattern|
-    matches = Dir.glob(pattern)
+    matches = Dir.glob(pattern).select { |f| File.file?(f) && File.basename(f) != "apps.json" }
     return matches.first if matches.any?
   end
 
-  # 3. Quét tất cả file .json trong fastlane/ (trừ apps.json) kiểm tra nội dung có phải Service Account Google không
-  all_json = Dir.glob(File.join(fastlane_dir, "*.json")).reject { |f| File.basename(f) == "apps.json" }
+  # 3. Quét tất cả file .json trong fastlane/api_keys/ và fastlane/ (trừ apps.json)
+  all_json = (Dir.glob(File.join(api_keys_dir, "*.json")) + Dir.glob(File.join(fastlane_dir, "*.json"))).reject { |f| File.basename(f) == "apps.json" || File.directory?(f) }
   all_json.each do |f|
     begin
       content = File.read(f, 500) # Đọc 500 bytes đầu để kiểm tra
@@ -158,14 +171,14 @@ end
 
 # Lấy thông tin xác thực Google Play (Hỗ trợ: SUPPLY_JSON_KEY_DATA trên CI, file JSON local, hoặc Match Git repo)
 def get_google_play_key(options = {})
-  key_content = ENV["SUPPLY_JSON_KEY_DATA"] || options[:json_key_data]
-  key_path = ENV["SUPPLY_JSON_KEY"] || ENV["GOOGLE_PLAY_KEY_FILE"] || options[:json_key] || options[:filepath]
-  match_password = ENV["MATCH_PASSWORD"]
+  key_content = clean_param_value(options[:json_key_data]) || clean_param_value(ENV["SUPPLY_JSON_KEY_DATA"])
+  key_path = clean_param_value(options[:json_key]) || clean_param_value(options[:filepath]) || clean_param_value(options[:key_path]) || clean_param_value(ENV["SUPPLY_JSON_KEY"]) || clean_param_value(ENV["GOOGLE_PLAY_KEY_FILE"])
+  match_password = clean_param_value(ENV["MATCH_PASSWORD"])
   force_match = options[:from_git] == true || ENV["FORCE_MATCH_KEY"] == "true"
 
   # 1. Ưu tiên 1: Biến môi trường SUPPLY_JSON_KEY_DATA (trên CI/CD)
-  if !force_match && key_content && !key_content.to_s.strip.empty?
-    formatted_content = key_content.to_s.strip
+  if !force_match && key_content
+    formatted_content = key_content
     # Nếu là base64 (không bắt đầu bằng '{'), tự động decode
     if !formatted_content.start_with?("{")
       begin
@@ -182,8 +195,8 @@ def get_google_play_key(options = {})
   end
 
   # 2. Ưu tiên 2: File JSON local (khi chạy local)
-  local_file = key_path || auto_detect_google_key_file unless force_match
-  if local_file && File.exist?(File.expand_path(local_file))
+  local_file = (key_path && File.file?(File.expand_path(key_path))) ? File.expand_path(key_path) : auto_detect_google_key_file unless force_match
+  if local_file && File.file?(File.expand_path(local_file))
     expanded_path = File.expand_path(local_file)
     UI.message("🔑 Sử dụng local file Google Play Key: #{expanded_path}")
     content = File.read(expanded_path).strip
@@ -195,8 +208,8 @@ def get_google_play_key(options = {})
 
   # 3. Ưu tiên 3: Tải và giải mã từ MATCH_GIT_URL
   match_password ||= UI.password("Nhập MATCH_PASSWORD để giải mã Google Play Key từ MATCH_GIT_URL:") unless is_ci
-  if match_password && !match_password.to_s.strip.empty?
-    key_name = ENV["GOOGLE_PLAY_KEY_NAME"] || options[:key_name]
+  if match_password && !match_password.empty?
+    key_name = clean_param_value(options[:key_name]) || clean_param_value(ENV["GOOGLE_PLAY_KEY_NAME"])
     decrypted_content = fetch_google_key_from_match_git(match_password, key_name)
     ENV.delete("SUPPLY_JSON_KEY")
     ENV.delete("GOOGLE_PLAY_KEY_FILE")
@@ -209,9 +222,15 @@ end
 
 # Mã hoá và push Google Play Service Account JSON Key lên MATCH_GIT_URL
 def push_google_key_to_git(options = {})
-  key_path = options[:filepath] || options[:key_path] || ENV["SUPPLY_JSON_KEY"] || ENV["GOOGLE_PLAY_KEY_FILE"] || auto_detect_google_key_file
+  raw_path = clean_param_value(options[:filepath]) || clean_param_value(options[:key_path]) || clean_param_value(ENV["SUPPLY_JSON_KEY"]) || clean_param_value(ENV["GOOGLE_PLAY_KEY_FILE"])
   
-  unless key_path && File.exist?(File.expand_path(key_path))
+  key_path = if raw_path && File.file?(File.expand_path(raw_path))
+               File.expand_path(raw_path)
+             else
+               auto_detect_google_key_file
+             end
+
+  unless key_path && File.file?(File.expand_path(key_path))
     UI.user_error!("Không tìm thấy file Google Play JSON key! Vui lòng truyền filepath:<đường_dẫn_file.json> hoặc đặt file json trong thư mục fastlane/.")
   end
 
@@ -229,9 +248,9 @@ def push_google_key_to_git(options = {})
   end
 
   # Xác định tên file mã hoá đích trong git repo
-  key_name = options[:key_name] || ENV["GOOGLE_PLAY_KEY_NAME"]
-  target_filename = if key_name && !key_name.to_s.strip.empty?
-                      clean = key_name.to_s.strip.sub(/\.enc$/, '')
+  key_name = clean_param_value(options[:key_name]) || clean_param_value(ENV["GOOGLE_PLAY_KEY_NAME"])
+  target_filename = if key_name
+                      clean = key_name.sub(/\.enc$/, '')
                       clean.end_with?(".json") ? "#{clean}.enc" : "#{clean}.json.enc"
                     else
                       "#{base_filename}.enc"

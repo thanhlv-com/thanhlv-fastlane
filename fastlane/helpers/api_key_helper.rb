@@ -13,7 +13,8 @@ UI = FastlaneCore::UI unless defined?(UI)
 def auto_detect_key_id
   return ENV["ASC_KEY_ID"] if ENV["ASC_KEY_ID"] && !ENV["ASC_KEY_ID"].empty?
 
-  local_keys = Dir.glob(File.join(__dir__, "..", "AuthKey_*.p8*"))
+  local_keys = Dir.glob(File.join(__dir__, "..", "api_keys", "AuthKey_*.p8*")) +
+               Dir.glob(File.join(__dir__, "..", "AuthKey_*.p8*"))
   if local_keys.any?
     filename = File.basename(local_keys.first)
     match = filename.match(/AuthKey_([A-Z0-9]+)\.p8/)
@@ -77,13 +78,19 @@ def get_api_key
   end
 
   # 2. Ưu tiên 2: File .p8 local (khi chạy local)
-  local_key_file = key_path || File.join(__dir__, "..", "AuthKey_#{key_id}.p8")
-  if File.exist?(File.expand_path(local_key_file))
+  local_candidates = [
+    key_path,
+    File.join(__dir__, "..", "api_keys", "AuthKey_#{key_id}.p8"),
+    File.join(__dir__, "..", "AuthKey_#{key_id}.p8")
+  ].compact.map { |f| File.expand_path(f) }
+  local_key_file = local_candidates.find { |f| File.file?(f) }
+
+  if local_key_file
     UI.message("🔑 Sử dụng local file API Key: #{local_key_file}")
     return app_store_connect_api_key(
       key_id: key_id,
       issuer_id: issuer_id,
-      key_filepath: File.expand_path(local_key_file),
+      key_filepath: local_key_file,
       in_house: false
     )
   end
@@ -104,15 +111,20 @@ def get_api_key
 end
 
 # Mã hoá và push App Store Connect API Key lên MATCH_GIT_URL
-def push_api_key_to_git(options)
-  key_id = options[:key_id] || auto_detect_key_id
-  key_path = options[:key_path] || ENV["ASC_KEY_PATH"] || File.join(__dir__, "..", "AuthKey_#{key_id}.p8")
-  git_url = ENV["MATCH_GIT_URL"] || "git@github.com:thanhlv-com/apple-certificates-keystore.git"
-  git_branch = ENV["MATCH_GIT_BRANCH"] || "master"
-  match_password = ENV["MATCH_PASSWORD"] || UI.password("Nhập MATCH_PASSWORD để mã hoá key:")
+def push_api_key_to_git(options = {})
+  clean_str = ->(v) { (v.nil? || v.to_s.strip.empty?) ? nil : v.to_s.strip }
+  key_id = clean_str.call(options[:key_id]) || auto_detect_key_id
+  raw_path = clean_str.call(options[:filepath]) || clean_str.call(options[:key_path]) || clean_str.call(ENV["ASC_KEY_PATH"])
 
-  unless File.exist?(File.expand_path(key_path))
-    UI.user_error!("Không tìm thấy file key tại: #{key_path}")
+  candidates = [
+    raw_path,
+    File.join(__dir__, "..", "api_keys", "AuthKey_#{key_id}.p8"),
+    File.join(__dir__, "..", "AuthKey_#{key_id}.p8")
+  ].compact.map { |f| File.expand_path(f) }
+  key_path = candidates.find { |f| File.file?(f) }
+
+  unless key_path
+    UI.user_error!("Không tìm thấy file key tại: #{raw_path || 'fastlane/api_keys/AuthKey_' + key_id.to_s + '.p8'}")
   end
 
   temp_dir = Dir.mktmpdir("fastlane_push_key_")
