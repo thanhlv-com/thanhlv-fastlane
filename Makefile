@@ -343,7 +343,7 @@ metadata-push:
 		echo "$(RED)❌ Vui lòng chỉ định app: make metadata-push APP=OpsFlow_Hub [PLATFORM=ios|macos|aos|windows|linux] [OVERWRITE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane push_metadata app:$(APP) platform:$${PLATFORM:-ios} version:$${VERSION:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false} overwrite_screenshots:$${OVERWRITE:-true}
+	fastlane push_metadata app:$(APP) platform:$${PLATFORM:-ios} version:$${VERSION:-} version_code:$${VERSION_CODE:-} upload_screenshots:$${SCREENSHOTS:-false} submit_for_review:$${SUBMIT:-false} overwrite_screenshots:$${OVERWRITE:-true} track:$${TRACK:-} upload_changelogs:$${CHANGELOGS:-}
 
 ## Tải (Pull) Metadata tổng quát
 metadata-pull:
@@ -394,10 +394,10 @@ mac-metadata-download: mac-metadata-pull
 # --- Android / AOS (Google Play Store) ---
 aos-metadata-push:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make aos-metadata-push APP=OpsFlow_Hub [SCREENSHOTS=false]$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make aos-metadata-push APP=OpsFlow_Hub [SCREENSHOTS=false] [VERSION_CODE=...] [TRACK=production] [CHANGELOGS=false]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane aos push_metadata app:$(APP) upload_screenshots:$${SCREENSHOTS:-false}
+	fastlane aos push_metadata app:$(APP) upload_screenshots:$${SCREENSHOTS:-false} version_code:$${VERSION_CODE:-} track:$${TRACK:-} upload_changelogs:$${CHANGELOGS:-}
 
 aos-metadata-upload: aos-metadata-push
 

@@ -326,7 +326,13 @@ class InteractiveMenu
       submit = prompt_confirm("Gửi lên kiểm duyệt (Submit for Review) luôn?", false)
       cmd = "make mac-metadata-push APP=#{app_key} VERSION=#{version} SCREENSHOTS=#{upload_shots} SUBMIT=#{submit}"
     when "aos"
+      upload_changelogs = prompt_confirm("Có muốn cập nhật Changelogs (Release Notes) lên Google Play không?", false)
+      vcode = ""
+      if upload_changelogs
+        vcode = prompt_input("Nhập Version Code của bản release trên Google Play Console", "")
+      end
       cmd = "make aos-metadata-push APP=#{app_key} SCREENSHOTS=#{upload_shots}"
+      cmd += " VERSION_CODE=#{vcode} CHANGELOGS=true" if upload_changelogs && !vcode.to_s.strip.empty?
     end
 
     execute_command(cmd)

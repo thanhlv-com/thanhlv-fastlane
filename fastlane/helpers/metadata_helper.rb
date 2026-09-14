@@ -1462,6 +1462,39 @@ def upload_app_metadata_to_store(app_key, platform = "ios", options = {})
     package_name = resolve_bundle_id(app_info, "aos", options)
     json_key_data = get_google_play_key(options)
 
+    # Xử lý version code và changelogs
+    # Google Play chỉ cho phép upload changelogs khi xác định được version_code cụ thể trên release track.
+    # Nếu không có version_code, BẮT BUỘC phải skip_upload_changelogs: true để tránh lỗi:
+    # "[!] en-US - Cannot find changelog because no version code given - please specify :version_code"
+    raw_version_code = options[:version_code] || options[:build_number]
+    if raw_version_code.nil? || raw_version_code.to_s.strip.empty?
+      raw_version = options[:version] || options[:app_version] || app_info["version"]
+      if raw_version && raw_version.to_s.include?("+")
+        raw_version_code = raw_version.to_s.split("+", 2)[1]
+      end
+    end
+    version_code = raw_version_code.to_s.strip if raw_version_code
+
+    should_upload_changelogs = false
+    if options[:skip_changelogs] == true || options[:skip_changelogs] == "true" || options[:skip_upload_changelogs] == true || options[:skip_upload_changelogs] == "true"
+      should_upload_changelogs = false
+    elsif options[:upload_changelogs] == true || options[:upload_changelogs] == "true" || options[:changelogs] == true || options[:changelogs] == "true"
+      if version_code && !version_code.empty? && version_code != "timestamp"
+        should_upload_changelogs = true
+      else
+        UI.important("⚠️ Không thể upload changelogs vì chưa chỉ định version_code cụ thể (Google Play yêu cầu version_code để đính kèm Release Notes). Bỏ qua changelogs...")
+        should_upload_changelogs = false
+      end
+    elsif version_code && !version_code.empty? && version_code != "timestamp"
+      changelogs_exist = Dir.glob(File.join(metadata_dir, "**/changelogs/#{version_code}.txt")).any? || Dir.glob(File.join(metadata_dir, "**/changelogs/default.txt")).any?
+      should_upload_changelogs = changelogs_exist
+    else
+      should_upload_changelogs = false
+    end
+
+    UI.message("🚀 Upload Changelogs (Release Notes): #{should_upload_changelogs}")
+    UI.message("🚀 Version Code: #{version_code}") if version_code && !version_code.empty?
+
     supply_args = {
       package_name: package_name,
       metadata_path: metadata_dir,
@@ -1469,10 +1502,12 @@ def upload_app_metadata_to_store(app_key, platform = "ios", options = {})
       skip_upload_apk: true,
       skip_upload_images: skip_screenshots,
       skip_upload_screenshots: skip_screenshots,
-      skip_upload_changelogs: false,
+      skip_upload_changelogs: !should_upload_changelogs,
       check_superseded_tracks: true,
       json_key_data: json_key_data
     }
+    supply_args[:track] = options[:track] if options[:track] && !options[:track].to_s.strip.empty?
+    supply_args[:version_code] = version_code.to_i if should_upload_changelogs && version_code
 
     upload_to_play_store(supply_args)
 
