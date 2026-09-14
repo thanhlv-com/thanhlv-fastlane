@@ -1,4 +1,5 @@
 name: Sync Apple Certificates & Profiles (Fastlane Match)
+run-name: "Sync Certs: ${{ inputs.platform }} [${{ inputs.type }}]${{ inputs.app != 'all' && format(' ({0})', inputs.app) || ' (All Apps)' }}${{ !inputs.readonly && ' [WRITE]' || '' }}"
 
 on:
   workflow_dispatch:
