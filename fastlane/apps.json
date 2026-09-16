@@ -12,7 +12,7 @@
     "package_name": "com.thanhlv.devtool",
     "apple_id": "6802606509",
     "flavor": "",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "obfuscate": true,
     "description": "CloudOps Hub Multi-Platform Application (iOS, macOS, Android)"
   },
@@ -45,7 +45,7 @@
     "description": "Manage multiple websites with isolated sessions and separate logins"
   },
   "app_github_pro": {
-    "app_name": "Git+ for GitHub",
+    "app_name": "Git client for GH",
     "git_url": "git@github.com:thanhlv-com/app-github-pro.git",
     "branch": "main",
     "platforms": [
@@ -57,7 +57,7 @@
     "package_name": "com.thanhlv.githubpro",
     "version": "1.0.0",
     "obfuscate": true,
-    "description": "Git+ is a high-performance developer client designed to bring the complete power of GitHub to your mobile device."
+    "description": "Git client for GH is a high-performance developer client designed to bring the complete power of GH to your mobile device."
   },
   "app_Lam_Toan_Tre_Con": {
     "app_name": "Làm Toán trẻ con",
