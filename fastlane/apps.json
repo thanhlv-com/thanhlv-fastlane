@@ -60,7 +60,7 @@
     "description": "Git client for GH is a high-performance developer client designed to bring the complete power of GH to your mobile device."
   },
   "app_Lam_Toan_Tre_Con": {
-    "app_name": "Làm Toán trẻ con",
+    "app_name": "Mathy: Visual Math Adventure",
     "git_url": "git@github.com:thanhlv-com/app-lam-toan-tre-con.git",
     "branch": "main",
     "platforms": [
@@ -69,9 +69,9 @@
     ],
     "bundle_id": "com.thanhlv.lamtoantrecon",
     "package_name": "com.thanhlv.lamtoantrecon",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "obfuscate": true,
-    "description": "App làm toán trẻ con"
+    "description": "Mathy: Visual Math Adventure for Kids (CPA Framework, Balance Scale, Number Line)"
   },
   "app-snapvid": {
     "app_name": "FrameSnap: Video to Photo",
