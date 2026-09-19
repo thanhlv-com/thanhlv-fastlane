@@ -17,6 +17,7 @@ on:
           - "app-QuestFlow"
           - "app_Comparison_Table_App"
           - "app-dem-tien-vn"
+          - "app-dem-tien-jp"
       action:
         description: "Hành động thực hiện"
         required: true
