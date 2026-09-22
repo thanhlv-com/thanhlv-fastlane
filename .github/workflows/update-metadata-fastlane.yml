@@ -22,6 +22,7 @@ on:
           - "app-dem-tien-vn"
           - "app-dem-tien-jp"
           - "AR-Drawing"
+          - "app-dem-tien-usd"
       platform:
         description: "Nền tảng mục tiêu"
         required: true

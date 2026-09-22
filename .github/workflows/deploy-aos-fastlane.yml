@@ -22,6 +22,7 @@ on:
           - "app-dem-tien-vn"
           - "app-dem-tien-jp"
           - "AR-Drawing"
+          - "app-dem-tien-usd"
       action:
         description: "Hành động thực hiện"
         required: true

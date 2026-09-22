@@ -160,6 +160,21 @@
     "version": "1.0.0",
     "obfuscate": true,
     "description": "Trace to Sketch on Paper with AR Camera and AI Outlines"
+  },
+  "app-dem-tien-usd": {
+    "app_name": "USD Money Counter & Till Calc",
+    "git_url": "git@github.com:thanhlv-com/app-dem-tien-usd.git",
+    "branch": "main",
+    "platforms": [
+      "ios",
+      "macos",
+      "aos"
+    ],
+    "bundle_id": "com.thanhlv.demtienusd",
+    "package_name": "com.thanhlv.demtienusd",
+    "version": "1.0.0",
+    "obfuscate": true,
+    "description": "Count US Dollar bills & coins, balance cash drawers, manage till float, and export PDF cash reports."
   }
 }
 
