@@ -177,7 +177,7 @@
     "description": "Count US Dollar bills & coins, balance cash drawers, manage till float, and export PDF cash reports."
   },
   "app-dem-tien-china": {
-    "app_name": "人民币点钞机 - 现金盘点对账",
+    "app_name": "Đếm Tiền China - Nhân Dân Tệ",
     "git_url": "git@github.com:thanhlv-com/app-dem-tien-china.git",
     "branch": "main",
     "platforms": [
@@ -189,7 +189,7 @@
     "package_name": "com.thanhlv.demtienchina",
     "version": "1.0.0",
     "obfuscate": true,
-    "description": "专业人民币点钞与现金盘点对账工具，支持大写金额转换、纸币硬币、扎钞计算与PDF报表导出。"
+    "description": "Ứng dụng chuyên đếm tiền China (Nhân Dân Tệ RMB/CNY), kiểm két tiền mặt, tính bó cọc tiền và xuất báo cáo PDF."
   }
 }
 
