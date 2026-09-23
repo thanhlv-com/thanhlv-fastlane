@@ -31,6 +31,7 @@ on:
           - "app-dem-tien-jp"
           - "AR-Drawing"
           - "app-dem-tien-usd"
+          - "app-dem-tien-china"
       type:
         description: "Loại Certificate / Profile"
         required: true

@@ -19,6 +19,7 @@ on:
           - "app-dem-tien-vn"
           - "app-dem-tien-jp"
           - "app-dem-tien-usd"
+          - "app-dem-tien-china"
       action:
         description: "Hành động thực hiện"
         required: true
