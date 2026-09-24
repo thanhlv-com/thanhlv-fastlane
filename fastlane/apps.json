@@ -190,6 +190,21 @@
     "version": "1.0.0",
     "obfuscate": true,
     "description": "Ứng dụng chuyên đếm tiền China (Nhân Dân Tệ RMB/CNY), kiểm két tiền mặt, tính bó cọc tiền và xuất báo cáo PDF."
+  },
+  "app-dem-tien-eur": {
+    "app_name": "Euro Money Counter & Till Calc",
+    "git_url": "git@github.com:thanhlv-com/thanhlv-fastlane.git",
+    "branch": "main",
+    "platforms": [
+      "ios",
+      "macos",
+      "aos"
+    ],
+    "bundle_id": "com.thanhlv.appEurFlutter",
+    "package_name": "com.thanhlv.app_eur_flutter",
+    "version": "1.0.0",
+    "obfuscate": true,
+    "description": "Count Euro banknotes & coins by denomination, save cash count history, and export PDF reports for reconciliation."
   }
 }
 
