@@ -16,4 +16,6 @@
 | 2026-09-27T00:36:00+07:00 | CI/CD Integration | AI Agent | Added GitHub Action workflow `register-apple-fastlane.yml` and synced choices via `scripts/sync_workflow_apps.rb`. Verified via `make check-all`. | `.github/workflows/register-apple-fastlane.yml`, `scripts/sync_workflow_apps.rb` |
 | 2026-09-27T00:44:00+07:00 | Matrix Parallelization | AI Agent | Updated `register-apple-fastlane.yml` with `prepare-matrix` job to split `all all` into dynamic parallel matrix jobs with `fail-fast: false`. | `.github/workflows/register-apple-fastlane.yml` |
 | 2026-09-27T01:02:00+07:00 | Bugfix Execution | AI Agent | Fixed `NoMethodError in_house for Hash` by instantiating `Spaceship::ConnectAPI::Token` via `Token.from`/`Token.create`, enabling `set_spaceship_token: true`, adding resilient Fastlane produce fallback with `skip_devcenter` condition. | `fastlane/helpers/api_key_helper.rb`, `fastlane/helpers/apple_registration_helper.rb` |
+| 2026-09-27T01:15:00+07:00 | Bugfix Execution | AI Agent | Resolved `missing keyword: :seed_id` via dynamic `resolve_apple_seed_id`, migrated App Store Connect creation to direct `ConnectAPI::App.create` (avoiding interactive DevCenter credential prompt in produce), and enforced non-zero exit code (`UI.user_error!`) on single & batch failures. | `fastlane/helpers/apple_registration_helper.rb`, `fastlane/Fastfile`, `audit.md` |
+
 

@@ -99,8 +99,14 @@ lane :register_apps do |options|
     app_info = get_app_config(app_key)
     if platform.to_s.downcase == "all"
       target_platforms = (app_info["platforms"] || ["ios"]).map { |p| normalize_apple_platform(p) }.select { |p| ["ios", "macos"].include?(p) }
+      results = []
       target_platforms.each do |plt|
-        verify_and_register_apple_app(app_key, app_info, plt, options)
+        results << verify_and_register_apple_app(app_key, app_info, plt, options.merge(fail_on_error: false))
+      end
+      render_apple_registration_summary(results) if results.size > 1
+      failed = results.select { |r| r[:portal_status] == "FAILED" || r[:asc_status] == "FAILED" }
+      if failed.any?
+        UI.user_error!("❌ Đăng ký Apple thất bại cho '#{app_key}': #{failed.map { |f| "#{f[:platform]}: #{f[:error]}" }.join('; ')}")
       end
     else
       verify_and_register_apple_app(app_key, app_info, platform, options)
