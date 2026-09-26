@@ -263,46 +263,71 @@ def verify_or_create_asc_app(bundle_id, app_name, platform, api_key, portal_stat
       UI.error("  ❌ [FAILED] #{err}")
       return { status: "FAILED", app_name: app_name, error: err }
     else
-      UI.important("  ⚠️ ConnectAPI tạo App gặp thông báo: #{msg}. Thử fallback qua Fastlane produce (skip_devcenter: true)...")
+      UI.important("  ⚠️ ConnectAPI tạo App gặp phản hồi từ Apple: #{msg}")
     end
   end
 
-  # 2. Fallback: Fastlane produce với skip_devcenter: true LUÔN LUÔN được bật (để tránh yêu cầu credentials Developer Portal)
-  begin
-    produce_params = {
-      api_key: api_key,
-      app_identifier: bundle_id,
+  # 2. Fallback: Fastlane produce (yêu cầu credentials web session của Apple ID: FASTLANE_USER & FASTLANE_PASSWORD / FASTLANE_SESSION)
+  fastlane_user = ENV["FASTLANE_USER"] || options[:username]
+  fastlane_password = ENV["FASTLANE_PASSWORD"] || options[:password]
+  has_web_auth = fastlane_user && !fastlane_user.strip.empty? && (fastlane_password || ENV["FASTLANE_SESSION"] || ENV["FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD"])
+
+  if has_web_auth
+    UI.message("  🌐 Đang thử tạo App Store Connect qua produce bằng session Apple ID (#{fastlane_user})...")
+    begin
+      produce_params = {
+        username: fastlane_user,
+        app_identifier: bundle_id,
+        app_name: app_name,
+        language: "English",
+        platform: produce_platform,
+        skip_devcenter: true, # BẮT BUỘC: luôn luôn true vì Identifier đã được tạo ở Dev Portal
+        skip_itc: false,
+        sku: sku
+      }
+      produce_params[:api_key] = api_key if api_key
+
+      if respond_to?(:produce)
+        produce(produce_params)
+      elsif defined?(Fastlane::Actions::ProduceAction)
+        Fastlane::Actions::ProduceAction.run(produce_params)
+      else
+        raise "Không thể gọi action produce ngoài ngữ cảnh Fastlane lane"
+      end
+
+      UI.success("  🎉 [CREATED] Đã tạo thành công App '#{app_name}' trên App Store Connect qua produce!")
+      return { status: "CREATED", app_name: app_name }
+    rescue => e
+      msg = e.message.to_s
+      if msg.include?("already exists") || msg.include?("nothing to do on App Store Connect")
+        UI.message("  ✅ [EXISTS] App '#{app_name}' đã tồn tại trên App Store Connect.")
+        return { status: "EXISTS", app_name: app_name }
+      elsif msg.include?("already being used") || msg.include?("The App Name you entered is already being used")
+        err = "Tên app '#{app_name}' đã bị trùng lặp toàn cầu trên App Store Connect! Vui lòng đổi app_name trong fastlane/apps.json."
+        UI.error("  ❌ [FAILED] #{err}")
+        return { status: "FAILED", app_name: app_name, error: err }
+      else
+        UI.error("  ❌ [FAILED] Lỗi tạo App '#{app_name}' trên App Store Connect qua produce: #{msg}")
+        return { status: "FAILED", app_name: app_name, error: msg }
+      end
+    end
+  else
+    # Môi trường CI sử dụng App Store Connect API Key thuần túy
+    err_guide = "Apple không cho phép tạo mới App Record bằng App Store Connect API Key (chính sách bảo mật của Apple: The resource 'apps' does not allow 'CREATE').\n" \
+                "  👉 Hướng dẫn xử lý:\n" \
+                "     1. Tạo ứng dụng thủ công trên web App Store Connect: https://appstoreconnect.apple.com/apps/new\n" \
+                "        - Platform: #{produce_platform.upcase}\n" \
+                "        - App Name: #{app_name}\n" \
+                "        - Primary Language: English (hoặc Vietnamese)\n" \
+                "        - Bundle ID: Chọn '#{bundle_id}' (đã được tạo thành công trên Dev Portal)\n" \
+                "        - SKU: #{sku}\n" \
+                "     2. Hoặc cung cấp secret FASTLANE_USER & FASTLANE_PASSWORD (kèm FASTLANE_SESSION nếu có 2FA) để tự động tạo qua web session."
+    UI.error("  ❌ [FAILED] #{err_guide}")
+    return {
+      status: "FAILED",
       app_name: app_name,
-      language: "English",
-      platform: produce_platform,
-      skip_devcenter: true, # BẮT BUỘC: luôn luôn true vì Identifier đã được xử lý ở Dev Portal
-      skip_itc: false,
-      sku: sku
+      error: "Apple hạn chế API Key tạo App mới. Vui lòng tạo trên web: https://appstoreconnect.apple.com/apps/new (Bundle ID: #{bundle_id})"
     }
-
-    if respond_to?(:produce)
-      produce(produce_params)
-    elsif defined?(Fastlane::Actions::ProduceAction)
-      Fastlane::Actions::ProduceAction.run(produce_params)
-    else
-      raise "Không thể gọi action produce ngoài ngữ cảnh Fastlane lane"
-    end
-
-    UI.success("  🎉 [CREATED] Đã tạo thành công App '#{app_name}' trên App Store Connect qua produce!")
-    { status: "CREATED", app_name: app_name }
-  rescue => e
-    msg = e.message.to_s
-    if msg.include?("already exists") || msg.include?("nothing to do on App Store Connect")
-      UI.message("  ✅ [EXISTS] App '#{app_name}' đã tồn tại trên App Store Connect.")
-      { status: "EXISTS", app_name: app_name }
-    elsif msg.include?("already being used") || msg.include?("The App Name you entered is already being used")
-      err = "Tên app '#{app_name}' đã bị trùng lặp toàn cầu trên App Store Connect! Vui lòng đổi app_name trong fastlane/apps.json."
-      UI.error("  ❌ [FAILED] #{err}")
-      { status: "FAILED", app_name: app_name, error: err }
-    else
-      UI.error("  ❌ [FAILED] Lỗi tạo App '#{app_name}' trên App Store Connect: #{msg}")
-      { status: "FAILED", app_name: app_name, error: msg }
-    end
   end
 end
 
