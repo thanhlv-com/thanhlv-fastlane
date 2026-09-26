@@ -1,0 +1,11 @@
+{
+  "current_session": "2026-09-24-apple-identifiers",
+  "sessions": [
+    {
+      "id": "2026-09-24-apple-identifiers",
+      "created_at": "2026-09-24T15:01:16+07:00",
+      "status": "active",
+      "description": "Add Apple Identifiers (App IDs & Capabilities) registration feature across Fastlane, CLI, and Makefile"
+    }
+  ]
+}
