@@ -51,11 +51,6 @@ env:
   CFG_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
   CFG_ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
 
-  # Web session credentials (tuỳ chọn: cho phép produce tạo App trên web nếu có 2FA session)
-  CFG_FASTLANE_USER: ${{ secrets.FASTLANE_USER }}
-  CFG_FASTLANE_PASSWORD: ${{ secrets.FASTLANE_PASSWORD }}
-  CFG_FASTLANE_SESSION: ${{ secrets.FASTLANE_SESSION }}
-
   # Fastlane Match Secrets
   CFG_MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
 
@@ -177,9 +172,6 @@ jobs:
           APPLE_TEAM_ID: ${{ env.CFG_APPLE_TEAM_ID }}
           ITC_TEAM_ID: ${{ env.CFG_ITC_TEAM_ID }}
           MATCH_PASSWORD: ${{ env.CFG_MATCH_PASSWORD }}
-          FASTLANE_USER: ${{ env.CFG_FASTLANE_USER }}
-          FASTLANE_PASSWORD: ${{ env.CFG_FASTLANE_PASSWORD }}
-          FASTLANE_SESSION: ${{ env.CFG_FASTLANE_SESSION }}
           MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ env.GH_REPO_OWNER }}/${{ env.KEYSTORE_REPO_NAME }}.git"
           CI: "true"
         run: |

@@ -88,7 +88,7 @@ lane :download_metadata do |options|
   pull_metadata(options)
 end
 
-desc "Kiểm tra và đăng ký Apple Identifiers (Developer Portal) & Apps (App Store Connect) cho 1 app hoặc tất cả apps"
+desc "Kiểm tra và đăng ký Apple Identifiers (Developer Portal) & kiểm tra Apps trên App Store Connect cho 1 app hoặc tất cả apps"
 lane :register_apps do |options|
   app_key = options[:app]
   platform = options[:platform] || "all"
@@ -104,9 +104,9 @@ lane :register_apps do |options|
         results << verify_and_register_apple_app(app_key, app_info, plt, options.merge(fail_on_error: false))
       end
       render_apple_registration_summary(results) if results.size > 1
-      failed = results.select { |r| r[:portal_status] == "FAILED" || r[:asc_status] == "FAILED" }
+      failed = results.select { |r| r[:portal_status] == "FAILED" }
       if failed.any?
-        UI.user_error!("❌ Đăng ký Apple thất bại cho '#{app_key}': #{failed.map { |f| "#{f[:platform]}: #{f[:error]}" }.join('; ')}")
+        UI.user_error!("❌ Đăng ký Apple Identifier thất bại cho '#{app_key}': #{failed.map { |f| "#{f[:platform]}: #{f[:error]}" }.join('; ')}")
       end
     else
       verify_and_register_apple_app(app_key, app_info, platform, options)

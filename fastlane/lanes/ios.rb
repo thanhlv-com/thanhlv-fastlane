@@ -6,7 +6,7 @@ platform :ios do
     setup_ci if is_ci
   end
 
-  desc "Kiểm tra & đăng ký Apple Identifier (Dev Portal) và App (App Store Connect) cho iOS (1 app hoặc tất cả apps)"
+  desc "Kiểm tra & đăng ký Apple Identifier (Dev Portal) và kiểm tra App trên App Store Connect cho iOS (1 app hoặc tất cả apps)"
   lane :register_app do |options|
     app_key = options[:app]
 

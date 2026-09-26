@@ -365,7 +365,7 @@ class InteractiveMenu
 
   def handle_sync_certs
     action = prompt_choice("Chọn Thao Tác Quản Lý Certs & API Keys", [
-      { label: "🆔 Kiểm tra & Đăng ký Apple Identifiers (Dev Portal) & App (App Store Connect)", value: "register_apple" },
+      { label: "🆔 Kiểm tra & Đăng ký Apple Identifiers (Dev Portal) & Kiểm tra App Store Connect", value: "register_apple" },
       { label: "🍎 Đồng bộ Certificates iOS qua Match", value: "sync_ios" },
       { label: "💻 Đồng bộ Certificates macOS qua Match", value: "sync_mac" },
       { label: "🍏 Mã hoá và Push App Store Connect API Key (Apple .p8) lên Match Git", value: "push_apple_key" },

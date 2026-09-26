@@ -192,14 +192,8 @@ def verify_or_create_portal_bundle_id(bundle_id, name, platform, options = {})
   end
 end
 
-# Kiểm tra và đăng ký Ứng dụng trên App Store Connect nếu chưa có
-def verify_or_create_asc_app(bundle_id, app_name, platform, api_key, portal_status = "UNKNOWN", options = {})
-  if portal_status.is_a?(Hash) && options.empty?
-    options = portal_status
-    portal_status = "UNKNOWN"
-  end
-  produce_platform = apple_produce_platform_code(platform)
-  connect_platform = apple_portal_platform_code(platform)
+# Kiểm tra trạng thái ứng dụng trên App Store Connect (chỉ kiểm tra xem đã tạo bằng tay chưa)
+def verify_asc_app(bundle_id, app_name, platform, options = {})
   UI.message("  🔍 [2/2] Kiểm tra App trên App Store Connect: '#{app_name}' (#{bundle_id})...")
 
   existing_app = nil
@@ -215,121 +209,16 @@ def verify_or_create_asc_app(bundle_id, app_name, platform, api_key, portal_stat
   if existing_app
     app_id = existing_app.respond_to?(:id) ? existing_app.id : "N/A"
     app_display_name = existing_app.respond_to?(:name) ? existing_app.name : app_name
-    UI.message("  ✅ [EXISTS] App '#{app_display_name}' (#{bundle_id}) đã tồn tại trên App Store Connect (Apple ID: #{app_id}). Bỏ qua tạo mới.")
+    UI.message("  ✅ [EXISTS] App '#{app_display_name}' (#{bundle_id}) đã có trên App Store Connect (Apple ID: #{app_id}).")
     return { status: "EXISTS", app_id: app_id, app_name: app_display_name }
   end
 
-  # Chưa có -> Tạo mới App trên App Store Connect
-  UI.message("  ➕ [CREATING] App '#{app_name}' (#{bundle_id}) chưa có trên App Store Connect. Đang tạo...")
-  sku = options[:sku] || "#{bundle_id.gsub(/[^0-9A-Za-z]/, '_').upcase}_#{Time.now.to_i}"
-  version = options[:app_version] || "1.0"
-  primary_locale = options[:language] || "en-US"
-
-  # 1. Ưu tiên: Tạo trực tiếp qua Spaceship::ConnectAPI REST API (sử dụng Token, không đòi hỏi Apple ID password hay interactive login)
-  begin
-    created_app = nil
-    if defined?(Spaceship::ConnectAPI::App) && Spaceship::ConnectAPI::App.respond_to?(:create)
-      created_app = Spaceship::ConnectAPI::App.create(
-        name: app_name,
-        version_string: version,
-        sku: sku,
-        primary_locale: primary_locale,
-        bundle_id: bundle_id,
-        platforms: [connect_platform]
-      )
-    elsif defined?(Spaceship::ConnectAPI) && Spaceship::ConnectAPI.respond_to?(:post_app)
-      created_app = Spaceship::ConnectAPI.post_app(
-        name: app_name,
-        version_string: version,
-        sku: sku,
-        primary_locale: primary_locale,
-        bundle_id: bundle_id,
-        platforms: [connect_platform]
-      )
-    end
-
-    if created_app
-      new_app_id = created_app.respond_to?(:id) ? created_app.id : "NEW"
-      UI.success("  🎉 [CREATED] Đã tạo thành công App '#{app_name}' trên App Store Connect (Apple ID: #{new_app_id})!")
-      return { status: "CREATED", app_name: app_name, app_id: new_app_id }
-    end
-  rescue => e
-    msg = e.message.to_s
-    if msg.include?("already exists") || msg.include?("already been taken") || msg.include?("already in use")
-      UI.message("  ✅ [EXISTS] App '#{app_name}' đã tồn tại trên App Store Connect.")
-      return { status: "EXISTS", app_name: app_name }
-    elsif msg.include?("already being used") || msg.include?("The App Name you entered is already being used")
-      err = "Tên app '#{app_name}' đã bị trùng lặp toàn cầu trên App Store Connect! Vui lòng đổi app_name trong fastlane/apps.json."
-      UI.error("  ❌ [FAILED] #{err}")
-      return { status: "FAILED", app_name: app_name, error: err }
-    else
-      UI.important("  ⚠️ ConnectAPI tạo App gặp phản hồi từ Apple: #{msg}")
-    end
-  end
-
-  # 2. Fallback: Fastlane produce (yêu cầu credentials web session của Apple ID: FASTLANE_USER & FASTLANE_PASSWORD / FASTLANE_SESSION)
-  fastlane_user = ENV["FASTLANE_USER"] || options[:username]
-  fastlane_password = ENV["FASTLANE_PASSWORD"] || options[:password]
-  has_web_auth = fastlane_user && !fastlane_user.strip.empty? && (fastlane_password || ENV["FASTLANE_SESSION"] || ENV["FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD"])
-
-  if has_web_auth
-    UI.message("  🌐 Đang thử tạo App Store Connect qua produce bằng session Apple ID (#{fastlane_user})...")
-    begin
-      produce_params = {
-        username: fastlane_user,
-        app_identifier: bundle_id,
-        app_name: app_name,
-        language: "English",
-        platform: produce_platform,
-        skip_devcenter: true, # BẮT BUỘC: luôn luôn true vì Identifier đã được tạo ở Dev Portal
-        skip_itc: false,
-        sku: sku
-      }
-      produce_params[:api_key] = api_key if api_key
-
-      if respond_to?(:produce)
-        produce(produce_params)
-      elsif defined?(Fastlane::Actions::ProduceAction)
-        Fastlane::Actions::ProduceAction.run(produce_params)
-      else
-        raise "Không thể gọi action produce ngoài ngữ cảnh Fastlane lane"
-      end
-
-      UI.success("  🎉 [CREATED] Đã tạo thành công App '#{app_name}' trên App Store Connect qua produce!")
-      return { status: "CREATED", app_name: app_name }
-    rescue => e
-      msg = e.message.to_s
-      if msg.include?("already exists") || msg.include?("nothing to do on App Store Connect")
-        UI.message("  ✅ [EXISTS] App '#{app_name}' đã tồn tại trên App Store Connect.")
-        return { status: "EXISTS", app_name: app_name }
-      elsif msg.include?("already being used") || msg.include?("The App Name you entered is already being used")
-        err = "Tên app '#{app_name}' đã bị trùng lặp toàn cầu trên App Store Connect! Vui lòng đổi app_name trong fastlane/apps.json."
-        UI.error("  ❌ [FAILED] #{err}")
-        return { status: "FAILED", app_name: app_name, error: err }
-      else
-        UI.error("  ❌ [FAILED] Lỗi tạo App '#{app_name}' trên App Store Connect qua produce: #{msg}")
-        return { status: "FAILED", app_name: app_name, error: msg }
-      end
-    end
-  else
-    # Môi trường CI sử dụng App Store Connect API Key thuần túy
-    err_guide = "Apple không cho phép tạo mới App Record bằng App Store Connect API Key (chính sách bảo mật của Apple: The resource 'apps' does not allow 'CREATE').\n" \
-                "  👉 Hướng dẫn xử lý:\n" \
-                "     1. Tạo ứng dụng thủ công trên web App Store Connect: https://appstoreconnect.apple.com/apps/new\n" \
-                "        - Platform: #{produce_platform.upcase}\n" \
-                "        - App Name: #{app_name}\n" \
-                "        - Primary Language: English (hoặc Vietnamese)\n" \
-                "        - Bundle ID: Chọn '#{bundle_id}' (đã được tạo thành công trên Dev Portal)\n" \
-                "        - SKU: #{sku}\n" \
-                "     2. Hoặc cung cấp secret FASTLANE_USER & FASTLANE_PASSWORD (kèm FASTLANE_SESSION nếu có 2FA) để tự động tạo qua web session."
-    UI.error("  ❌ [FAILED] #{err_guide}")
-    return {
-      status: "FAILED",
-      app_name: app_name,
-      error: "Apple hạn chế API Key tạo App mới. Vui lòng tạo trên web: https://appstoreconnect.apple.com/apps/new (Bundle ID: #{bundle_id})"
-    }
-  end
+  # Chưa có trên App Store Connect -> Thông báo hướng dẫn tạo tay trên web
+  UI.message("  ℹ️ [NOT_CREATED] App '#{app_name}' (#{bundle_id}) chưa có trên App Store Connect.")
+  UI.message("     👉 Bạn có thể tạo thủ công tại: https://appstoreconnect.apple.com/apps/new (chọn Bundle ID: #{bundle_id})")
+  { status: "NOT_CREATED", app_name: app_name, bundle_id: bundle_id }
 end
+alias verify_or_create_asc_app verify_asc_app
 
 # Kiểm tra & đăng ký các Secondary Identifiers (Extensions & App Groups) nếu có cấu hình
 def verify_secondary_identifiers(app_info, platform, api_key, options = {})
@@ -361,7 +250,7 @@ def verify_secondary_identifiers(app_info, platform, api_key, options = {})
   results
 end
 
-# Hàm chính: Kiểm tra & đăng ký đầy đủ Identifier & App cho 1 app cụ thể
+# Hàm chính: Kiểm tra & đăng ký đầy đủ Identifier & kiểm tra App cho 1 app cụ thể
 def verify_and_register_apple_app(app_key, app_info, platform = "ios", options = {})
   norm_platform = normalize_apple_platform(platform)
   validate_platform_support!(app_key, app_info, norm_platform)
@@ -370,32 +259,35 @@ def verify_and_register_apple_app(app_key, app_info, platform = "ios", options =
   app_name = options[:app_name] || app_info["app_name"] || app_key
 
   UI.message("\n" + "=" * 70)
-  UI.message("🚀 Bắt đầu kiểm tra & đăng ký Apple cho app: #{app_key} (#{app_name})")
+  UI.message("🚀 Bắt đầu kiểm tra & đăng ký Apple Identifier cho app: #{app_key} (#{app_name})")
   UI.message("🚀 Nền tảng: #{norm_platform.upcase} | Bundle ID: #{bundle_id}")
   UI.message("=" * 70)
 
   api_key = ensure_spaceship_api_key(options[:api_key])
 
-  # 1. Kiểm tra & tạo Identifier trên Developer Portal
+  # 1. Kiểm tra & tạo Identifier trên Developer Portal nếu chưa có
   portal_res = verify_or_create_portal_bundle_id(bundle_id, app_name, norm_platform, options)
 
-  # 2. Kiểm tra & tạo App trên App Store Connect
-  asc_res = verify_or_create_asc_app(bundle_id, app_name, norm_platform, api_key, portal_res[:status], options)
+  # 2. Kiểm tra App trên App Store Connect (chỉ kiểm tra sự tồn tại)
+  asc_res = verify_asc_app(bundle_id, app_name, norm_platform, options)
 
   # 3. Secondary identifiers (nếu có)
   ext_results = verify_secondary_identifiers(app_info, norm_platform, api_key, options)
 
   ext_failed = ext_results.select { |r| r[:status] == "FAILED" }
-  overall_success = portal_res[:status] != "FAILED" && asc_res[:status] != "FAILED" && ext_failed.empty?
+  overall_success = portal_res[:status] != "FAILED" && ext_failed.empty?
 
   if overall_success
-    UI.success("✨ Hoàn tất kiểm tra & đồng bộ Apple Identifier và App cho '#{app_key}'!")
+    UI.success("✨ Hoàn tất kiểm tra & đồng bộ Identifier Apple cho '#{app_key}'!")
+    if asc_res[:status] == "NOT_CREATED"
+      UI.important("💡 Ghi chú: App '#{app_name}' chưa có trên App Store Connect. Vui lòng tạo tay tại https://appstoreconnect.apple.com/apps/new (chọn Bundle ID: #{bundle_id})")
+    end
   else
-    UI.error("❌ Có lỗi phát sinh khi đồng bộ '#{app_key}'. Vui lòng xem chi tiết ở log phía trên.")
+    UI.error("❌ Có lỗi phát sinh khi đăng ký Identifier cho '#{app_key}'. Vui lòng xem chi tiết ở log phía trên.")
     # Ném lỗi để Fastlane/CI ghi nhận FAILED trừ khi được gọi trong ngữ cảnh batch (fail_on_error: false)
     if options[:fail_on_error] != false
-      error_msg = portal_res[:error] || asc_res[:error] || (ext_failed.first ? ext_failed.first[:error] : nil) || "Lỗi kiểm tra/đăng ký Apple cho #{app_key}"
-      UI.user_error!("❌ Đăng ký Apple thất bại cho '#{app_key}' (#{norm_platform.upcase}): #{error_msg}")
+      error_msg = portal_res[:error] || (ext_failed.first ? ext_failed.first[:error] : nil) || "Lỗi đăng ký Identifier cho #{app_key}"
+      UI.user_error!("❌ Đăng ký Apple Identifier thất bại cho '#{app_key}' (#{norm_platform.upcase}): #{error_msg}")
     end
   end
 
@@ -407,7 +299,7 @@ def verify_and_register_apple_app(app_key, app_info, platform = "ios", options =
     portal_status: portal_res[:status],
     asc_status: asc_res[:status],
     extensions_count: ext_results.size,
-    error: portal_res[:error] || asc_res[:error] || (ext_failed.first ? ext_failed.first[:error] : nil)
+    error: portal_res[:error] || (ext_failed.first ? ext_failed.first[:error] : nil)
   }
 end
 
@@ -424,7 +316,7 @@ def verify_and_register_all_apple_apps(target_platform = "all", options = {})
                        end
 
   UI.message("\n" + "🌟" * 35)
-  UI.message("🌟 Bắt đầu quét và đồng bộ Apple Identifiers & App Store Connect Apps")
+  UI.message("🌟 Bắt đầu quét và đồng bộ Apple Identifiers & kiểm tra App Store Connect")
   UI.message("🌟 Target Platforms: #{platforms_to_check.join(', ').upcase}")
   UI.message("🌟 Tổng số apps trong apps.json: #{apps_data.keys.size}")
   UI.message("🌟" * 35 + "\n")
@@ -457,7 +349,7 @@ def verify_and_register_all_apple_apps(target_platform = "all", options = {})
           platform: plt,
           bundle_id: failed_bundle,
           portal_status: "FAILED",
-          asc_status: "FAILED",
+          asc_status: "UNKNOWN",
           error: e.message
         }
       end
@@ -466,11 +358,11 @@ def verify_and_register_all_apple_apps(target_platform = "all", options = {})
 
   render_apple_registration_summary(results)
 
-  # Kiểm tra kết quả toàn batch: nếu có bất kỳ app nào FAILED thì ném UI.user_error! để báo thất bại
-  failed_items = results.select { |r| r[:portal_status] == "FAILED" || r[:asc_status] == "FAILED" }
+  # Kiểm tra kết quả toàn batch: chỉ fail nếu có Identifier trên Developer Portal thất bại
+  failed_items = results.select { |r| r[:portal_status] == "FAILED" }
   if failed_items.any?
     summary_errors = failed_items.map { |f| "#{f[:app_key]} [#{f[:platform]}]: #{f[:error]}" }.join("\n  - ")
-    UI.user_error!("❌ Có #{failed_items.size} ứng dụng thất bại khi đăng ký Apple:\n  - #{summary_errors}")
+    UI.user_error!("❌ Có #{failed_items.size} ứng dụng thất bại khi đăng ký Apple Identifier:\n  - #{summary_errors}")
   end
 
   results
@@ -488,9 +380,9 @@ def render_apple_registration_summary(results)
                    end
 
     asc_badge = case r[:asc_status]
-                when "CREATED" then "🎉 CREATED"
                 when "EXISTS" then "✅ EXISTS"
-                else "❌ FAILED"
+                when "NOT_CREATED" then "ℹ️ NOT CREATED (Manual)"
+                else "❓ UNKNOWN"
                 end
 
     [
