@@ -8,6 +8,7 @@ import "helpers/app_config_helper.rb"
 import "helpers/cert_helper.rb"
 import "helpers/git_workspace_helper.rb"
 import "helpers/metadata_helper.rb"
+import "helpers/apple_registration_helper.rb"
 
 before_all do
   setup_ci if is_ci
@@ -85,6 +86,31 @@ end
 desc "Tải Metadata từ App Store Connect về máy local (alias: pull_metadata)"
 lane :download_metadata do |options|
   pull_metadata(options)
+end
+
+desc "Kiểm tra và đăng ký Apple Identifiers (Developer Portal) & Apps (App Store Connect) cho 1 app hoặc tất cả apps"
+lane :register_apps do |options|
+  app_key = options[:app]
+  platform = options[:platform] || "all"
+
+  if app_key.nil? || app_key.to_s.strip.empty? || app_key.to_s.downcase == "all"
+    verify_and_register_all_apple_apps(platform, options)
+  else
+    app_info = get_app_config(app_key)
+    if platform.to_s.downcase == "all"
+      target_platforms = (app_info["platforms"] || ["ios"]).map { |p| normalize_apple_platform(p) }.select { |p| ["ios", "macos"].include?(p) }
+      target_platforms.each do |plt|
+        verify_and_register_apple_app(app_key, app_info, plt, options)
+      end
+    else
+      verify_and_register_apple_app(app_key, app_info, platform, options)
+    end
+  end
+end
+
+desc "Kiểm tra và đăng ký Apple Identifiers & Apps (alias: register_apps)"
+lane :register_identifiers do |options|
+  register_apps(options)
 end
 
 # 2. Import các lane theo từng nền tảng

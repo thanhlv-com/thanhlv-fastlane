@@ -109,6 +109,22 @@ Tải (Pull/Download) Metadata từ App Store / Store về máy local để ch�
 
 Tải Metadata từ App Store Connect về máy local (alias: pull_metadata)
 
+### register_apps
+
+```sh
+[bundle exec] fastlane register_apps [app:<app_key>|all] [platform:all|ios|macos]
+```
+
+Kiểm tra và đăng ký Apple Identifiers (Developer Portal) & Apps (App Store Connect) cho 1 app hoặc tất cả apps
+
+### register_identifiers
+
+```sh
+[bundle exec] fastlane register_identifiers [app:<app_key>|all] [platform:all|ios|macos]
+```
+
+Kiểm tra và đăng ký Apple Identifiers & Apps (alias: register_apps)
+
 ----
 
 
@@ -117,10 +133,18 @@ Tải Metadata từ App Store Connect về máy local (alias: pull_metadata)
 ### ios register_app
 
 ```sh
-[bundle exec] fastlane ios register_app
+[bundle exec] fastlane ios register_app [app:<app_key>|all]
 ```
 
-Đăng ký App Identifier & tạo App mới trên App Store Connect cho iOS
+Kiểm tra & đăng ký Apple Identifier (Dev Portal) và App (App Store Connect) cho iOS (1 app hoặc tất cả apps)
+
+### ios register_identifier
+
+```sh
+[bundle exec] fastlane ios register_identifier [app:<app_key>|all]
+```
+
+Kiểm tra & đăng ký Apple Identifier cho iOS (alias: register_app)
 
 ### ios clean_certs
 
@@ -210,10 +234,18 @@ Khởi tạo thư mục và các file Metadata template mẫu cho iOS app
 ### mac register_app
 
 ```sh
-[bundle exec] fastlane mac register_app
+[bundle exec] fastlane mac register_app [app:<app_key>|all]
 ```
 
-Đăng ký macOS App Identifier & tạo App mới trên App Store Connect
+Kiểm tra & đăng ký Apple Identifier (Dev Portal) và App (App Store Connect) cho macOS (1 app hoặc tất cả apps)
+
+### mac register_identifier
+
+```sh
+[bundle exec] fastlane mac register_identifier [app:<app_key>|all]
+```
+
+Kiểm tra & đăng ký Apple Identifier cho macOS (alias: register_app)
 
 ### mac clean_certs
 

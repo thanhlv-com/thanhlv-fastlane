@@ -365,6 +365,7 @@ class InteractiveMenu
 
   def handle_sync_certs
     action = prompt_choice("Chọn Thao Tác Quản Lý Certs & API Keys", [
+      { label: "🆔 Kiểm tra & Đăng ký Apple Identifiers (Dev Portal) & App (App Store Connect)", value: "register_apple" },
       { label: "🍎 Đồng bộ Certificates iOS qua Match", value: "sync_ios" },
       { label: "💻 Đồng bộ Certificates macOS qua Match", value: "sync_mac" },
       { label: "🍏 Mã hoá và Push App Store Connect API Key (Apple .p8) lên Match Git", value: "push_apple_key" },
@@ -375,6 +376,9 @@ class InteractiveMenu
     ])
 
     case action
+    when "register_apple"
+      handle_register_apple_apps
+
     when "sync_ios", "sync_mac"
       platform = (action == "sync_mac") ? "mac" : "ios"
       app_key = select_app(platform == "mac" ? "macos" : "ios", true)
@@ -418,6 +422,28 @@ class InteractiveMenu
 
     when "clean_certs"
       execute_command("make clean-certs && make clean-profiles")
+    end
+  end
+
+  def handle_register_apple_apps
+    platform = prompt_choice("Chọn Nền Tảng Cần Kiểm Tra & Đăng Ký", [
+      { label: "🌐 Tất cả các nền tảng Apple (iOS & macOS)", value: "all" },
+      { label: "🍎 iOS", value: "ios" },
+      { label: "💻 macOS", value: "macos" }
+    ])
+
+    target_filter = (platform == "macos") ? "macos" : ((platform == "ios") ? "ios" : "all")
+    app_key = select_app(target_filter, true)
+    return unless app_key
+
+    app_arg = (app_key == "all") ? "" : " APP=#{app_key}"
+    case platform
+    when "ios"
+      execute_command("make register-app-ios#{app_arg}")
+    when "macos"
+      execute_command("make register-app-mac#{app_arg}")
+    else
+      execute_command("make register-apps#{app_arg} PLATFORM=all")
     end
   end
 

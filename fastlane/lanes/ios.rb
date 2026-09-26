@@ -6,24 +6,21 @@ platform :ios do
     setup_ci if is_ci
   end
 
-  desc "Đăng ký App Identifier & tạo App mới trên App Store Connect cho iOS"
+  desc "Kiểm tra & đăng ký Apple Identifier (Dev Portal) và App (App Store Connect) cho iOS (1 app hoặc tất cả apps)"
   lane :register_app do |options|
-    app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane ios register_app app:OpsFlow_Hub")
-    app_info = get_app_config(app_key)
-    validate_platform_support!(app_key, app_info, "ios")
+    app_key = options[:app]
 
-    bundle_id = resolve_bundle_id(app_info, "ios", options)
-    api_key = get_api_key
+    if app_key.nil? || app_key.to_s.strip.empty? || app_key.to_s.downcase == "all"
+      verify_and_register_all_apple_apps("ios", options)
+    else
+      app_info = get_app_config(app_key)
+      verify_and_register_apple_app(app_key, app_info, "ios", options)
+    end
+  end
 
-    produce(
-      api_key: api_key,
-      app_identifier: bundle_id,
-      app_name: app_info["app_name"],
-      language: "English",
-      skip_itc: false
-    )
-
-    UI.success("🎉 Đã đăng ký thành công Bundle ID & App trên App Store Connect: #{bundle_id}")
+  desc "Kiểm tra & đăng ký Apple Identifier cho iOS (alias: register_app)"
+  lane :register_identifier do |options|
+    register_app(options)
   end
 
   desc "Dọn dẹp Certificate & Provisioning Profile cũ/hết hạn trên máy local"

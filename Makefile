@@ -7,7 +7,7 @@
         sync-workflows sync check-workflows check validate check-apps check-syntax check-all \
         install sync-workspace-code clone-workspace-code pull-workspace-code sync-code pull-code clone-code \
         prepare-workspace clean-workspace \
-        clean-certs clean-profiles push-api-key pull-api-key push-google-key pull-google-key sync-certs-ios sync-certs-mac register-app-ios register-app-mac \
+        clean-certs clean-profiles push-api-key pull-api-key push-google-key pull-google-key sync-certs-ios sync-certs-mac register-app-ios register-app-mac register-apps register-identifiers register-identifier-ios register-identifier-mac \
         ios-build ios-deploy mac-build mac-deploy aos-build aos-deploy windows-build linux-build \
         metadata-init metadata-pull metadata-push \
         ios-metadata-pull ios-metadata-push ios-metadata-download ios-metadata-upload \
@@ -88,10 +88,12 @@ help:
 	@echo "      Mã hoá và push Google Play Service Account JSON Key lên Match Git repo."
 	@echo "  $(GREEN)make pull-google-key [KEY_NAME=...]$(RESET)"
 	@echo "      Tải và giải mã Google Play Service Account JSON Key từ Match Git repo về fastlane/api_keys."
-	@echo "  $(GREEN)make register-app-ios APP=<app_key>$(RESET)"
-	@echo "      Đăng ký Bundle Identifier & tạo App trên App Store Connect cho iOS."
-	@echo "  $(GREEN)make register-app-mac APP=<app_key>$(RESET)"
-	@echo "      Đăng ký Bundle Identifier & tạo App trên App Store Connect cho macOS."
+	@echo "  $(GREEN)make register-app-ios [APP=OpsFlow_Hub|all]$(RESET)"
+	@echo "      Kiểm tra & đăng ký Bundle Identifier (Developer Portal) & App (App Store Connect) cho iOS."
+	@echo "  $(GREEN)make register-app-mac [APP=OpsFlow_Hub|all]$(RESET)"
+	@echo "      Kiểm tra & đăng ký Bundle Identifier (Developer Portal) & App (App Store Connect) cho macOS."
+	@echo "  $(GREEN)make register-apps [APP=all] [PLATFORM=all|ios|macos]$(RESET)"
+	@echo "      Kiểm tra & đăng ký toàn bộ Apple Identifiers & Apps trên cả iOS và macOS."
 	@echo ""
 	@echo "$(BOLD)$(YELLOW)📝 4. ĐỒNG BỘ 2 CHIỀU METADATA & SCREENSHOTS (PULL & PUSH):$(RESET)"
 	@echo "  $(GREEN)make metadata-init APP=<app_key> [PLATFORM=all|ios|macos|aos|windows|linux]$(RESET)"
@@ -245,21 +247,23 @@ sync-certs-ios:
 sync-certs-mac:
 	fastlane mac sync_certs app:$${APP:-} type:$${TYPE:-appstore} readonly:$${READONLY:-true}
 
-## Đăng ký Bundle ID trên Apple Developer Portal cho iOS
+## Kiểm tra & Đăng ký Bundle ID (Dev Portal) và App (App Store Connect) cho iOS
 register-app-ios:
-	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make register-app-ios APP=OpsFlow_Hub$(RESET)"; \
-		exit 1; \
-	fi
-	fastlane ios register_app app:$(APP)
+	fastlane ios register_app app:$${APP:-all}
 
-## Đăng ký Bundle ID trên Apple Developer Portal cho macOS
+register-identifier-ios: register-app-ios
+
+## Kiểm tra & Đăng ký Bundle ID (Dev Portal) và App (App Store Connect) cho macOS
 register-app-mac:
-	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make register-app-mac APP=OpsFlow_Hub$(RESET)"; \
-		exit 1; \
-	fi
-	fastlane mac register_app app:$(APP)
+	fastlane mac register_app app:$${APP:-all}
+
+register-identifier-mac: register-app-mac
+
+## Kiểm tra & Đăng ký tất cả các apps trên các nền tảng Apple (iOS & macOS)
+register-apps:
+	fastlane register_apps app:$${APP:-all} platform:$${PLATFORM:-all}
+
+register-identifiers: register-apps
 
 # ==============================================================================
 # 4. BUILD & DEPLOY CÁC NỀN TẢNG
