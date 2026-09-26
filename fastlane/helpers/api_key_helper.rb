@@ -73,7 +73,9 @@ def get_api_key
       key_id: key_id,
       issuer_id: issuer_id,
       key_content: formatted_content,
-      in_house: false
+      is_key_content_base64: false,
+      in_house: false,
+      set_spaceship_token: true
     )
   end
 
@@ -91,7 +93,8 @@ def get_api_key
       key_id: key_id,
       issuer_id: issuer_id,
       key_filepath: local_key_file,
-      in_house: false
+      in_house: false,
+      set_spaceship_token: true
     )
   end
 
@@ -103,7 +106,8 @@ def get_api_key
       key_id: key_id,
       issuer_id: issuer_id,
       key_content: decrypted_content,
-      in_house: false
+      in_house: false,
+      set_spaceship_token: true
     )
   else
     UI.user_error!("Không tìm thấy file .p8 local và thiếu MATCH_PASSWORD để tải/giải mã API Key từ MATCH_GIT_URL.")
