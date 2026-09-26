@@ -5,7 +5,7 @@
       "id": "2026-09-24-apple-identifiers",
       "created_at": "2026-09-24T15:01:16+07:00",
       "status": "active",
-      "description": "Add Apple Identifiers (App IDs & Capabilities) registration feature across Fastlane, CLI, and Makefile"
+      "description": "Check and register Apple Identifiers (Apple Developer Portal) and Apps (App Store Connect) idempotently across Fastlane, CLI menu, and Makefile"
     }
   ]
 }
