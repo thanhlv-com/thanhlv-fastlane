@@ -193,7 +193,7 @@
   },
   "app-dem-tien-eur": {
     "app_name": "Euro Money Counter & Till Calc",
-    "git_url": "git@github.com:thanhlv-com/thanhlv-fastlane.git",
+    "git_url": "git@github.com:thanhlv-com/app-dem-tien-eur.git",
     "branch": "main",
     "platforms": [
       "ios",
