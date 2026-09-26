@@ -1,5 +1,5 @@
 name: Register Apple Identifiers & App Store Connect Apps
-run-name: "Register Apple: ${{ inputs.platform }}${{ inputs.app != 'all' && format(' ({0})', inputs.app) || ' (All Apps)' }}"
+run-name: "Register Apple: ${{ inputs.platform }}${{ inputs.app != 'all' && format(' ({0})', inputs.app) || ' (All Apps Parallel Matrix)' }}"
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ on:
           - ios
           - macos
       app:
-        description: "Chọn App Key trong apps.json (hoặc 'all' để áp dụng toàn bộ)"
+        description: "Chọn App Key trong apps.json (hoặc 'all' để chạy song song qua Matrix)"
         required: false
         default: "all"
         type: choice
@@ -59,10 +59,83 @@ env:
   INPUT_APP: ${{ inputs.app }}
 
 jobs:
+  # ============================================================================
+  # 1. Xác định danh sách Apps (Matrix) cần chạy song song
+  # ============================================================================
+  prepare-matrix:
+    name: Prepare Parallel Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      apps_count: ${{ steps.set-matrix.outputs.apps_count }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Compute Target Matrix
+        id: set-matrix
+        env:
+          INPUT_APP: ${{ inputs.app }}
+          INPUT_PLATFORM: ${{ inputs.platform }}
+        run: |
+          ruby -rjson -e '
+            data = JSON.parse(File.read("fastlane/apps.json"))
+            app_input = ENV["INPUT_APP"].to_s.strip
+            platform_input = ENV["INPUT_PLATFORM"].to_s.strip.downcase
+
+            norm_platform = case platform_input
+                            when "both", "all", "" then "all"
+                            when "ios" then "ios"
+                            when "macos", "mac", "osx" then "macos"
+                            else "all"
+                            end
+
+            def normalize_p(p)
+              case p.to_s.downcase.strip
+              when "macos", "mac", "osx" then "macos"
+              when "ios" then "ios"
+              else p.to_s.downcase.strip
+              end
+            end
+
+            target_apps = if app_input == "all" || app_input.empty?
+              data.select do |k, v|
+                platforms = (v["platforms"] || ["ios", "android"]).map { |p| normalize_p(p) }
+                if norm_platform == "all"
+                  platforms.include?("ios") || platforms.include?("macos")
+                else
+                  platforms.include?(norm_platform)
+                end
+              end.keys
+            else
+              [app_input]
+            end
+
+            matrix_include = target_apps.map do |app_key|
+              { "app" => app_key, "platform" => norm_platform }
+            end
+
+            matrix_json = JSON.generate({ "include" => matrix_include })
+            puts "Target apps count: #{target_apps.size}"
+            puts "Generated matrix: #{matrix_json}"
+
+            File.open(ENV["GITHUB_OUTPUT"], "a") do |f|
+              f.puts "matrix=#{matrix_json}"
+              f.puts "apps_count=#{target_apps.size}"
+            end
+          '
+
+  # ============================================================================
+  # 2. Thực thi kiểm tra & đăng ký chạy SONG SONG qua Matrix
+  # ============================================================================
   register-apple:
-    name: Register Apple (${{ inputs.platform }} -> ${{ inputs.app }})
+    name: "Register: ${{ matrix.app }} [${{ matrix.platform }}]"
+    needs: prepare-matrix
     runs-on: macos-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare-matrix.outputs.matrix) }}
 
     steps:
       - name: Checkout Repository
@@ -102,19 +175,10 @@ jobs:
           MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ env.GH_REPO_OWNER }}/${{ env.KEYSTORE_REPO_NAME }}.git"
           CI: "true"
         run: |
-          PLATFORM_ARG="platform:all"
-          if [ "$INPUT_PLATFORM" = "ios" ]; then
-            PLATFORM_ARG="platform:ios"
-          elif [ "$INPUT_PLATFORM" = "macos" ]; then
-            PLATFORM_ARG="platform:macos"
-          fi
-
-          APP_ARG="app:all"
-          if [ -n "$INPUT_APP" ] && [ "$INPUT_APP" != "all" ]; then
-            APP_ARG="app:$INPUT_APP"
-          fi
+          PLATFORM_ARG="platform:${{ matrix.platform }}"
+          APP_ARG="app:${{ matrix.app }}"
 
           echo "=================================================="
-          echo "🍎 Kiểm tra & Đăng ký Apple Identifiers & Apps ($PLATFORM_ARG, $APP_ARG)..."
+          echo "🍎 [MATRIX JOB] Kiểm tra & Đăng ký Apple: ${{ matrix.app }} (${{ matrix.platform }})..."
           echo "=================================================="
           bundle exec fastlane register_apps $APP_ARG $PLATFORM_ARG
