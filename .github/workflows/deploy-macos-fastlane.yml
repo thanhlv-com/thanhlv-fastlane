@@ -21,6 +21,7 @@ on:
           - "app-dem-tien-usd"
           - "app-dem-tien-china"
           - "app-dem-tien-eur"
+          - "app-go-mo-niem-phat"
       action:
         description: "Hành động thực hiện"
         required: true

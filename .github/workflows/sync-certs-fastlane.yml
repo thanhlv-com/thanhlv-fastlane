@@ -33,6 +33,7 @@ on:
           - "app-dem-tien-usd"
           - "app-dem-tien-china"
           - "app-dem-tien-eur"
+          - "app-go-mo-niem-phat"
       type:
         description: "Loại Certificate / Profile"
         required: true

@@ -33,6 +33,7 @@ on:
           - "app-dem-tien-usd"
           - "app-dem-tien-china"
           - "app-dem-tien-eur"
+          - "app-go-mo-niem-phat"
 
 # ==============================================================================
 # KHAI BÁO TẬP TRUNG TẤT CẢ BIẾN MÔI TRƯỜNG & SECRETS TỪ GITHUB Ở ĐẦU FILE

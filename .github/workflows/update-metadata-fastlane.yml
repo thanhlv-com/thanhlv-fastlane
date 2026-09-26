@@ -25,6 +25,7 @@ on:
           - "app-dem-tien-usd"
           - "app-dem-tien-china"
           - "app-dem-tien-eur"
+          - "app-go-mo-niem-phat"
       platform:
         description: "Nền tảng mục tiêu"
         required: true

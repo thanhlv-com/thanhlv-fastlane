@@ -205,6 +205,22 @@
     "version": "1.0.0",
     "obfuscate": true,
     "description": "Count Euro banknotes & coins by denomination, save cash count history, and export PDF reports for reconciliation."
+  },
+  "app-go-mo-niem-phat": {
+    "app_name": "Gõ Mõ Niệm Phật - Auto Mõ",
+    "git_url": "git@github.com:thanhlv-com/app-go-mo-niem-phat.git",
+    "branch": "main",
+    "platforms": [
+      "ios",
+      "macos",
+      "aos"
+    ],
+    "bundle_id": "com.thanhlv.gomoniamphat",
+    "package_name": "com.thanhlv.gomoniamphat",
+    "version": "1.0.0",
+    "obfuscate": true,
+    "description": "Ứng dụng gõ mõ niệm phật chuẩn âm chùa, tích lũy công đức với chế độ auto click tốc độ 0.25s, 0.5s, 1s, 2s."
   }
 }
+
 
