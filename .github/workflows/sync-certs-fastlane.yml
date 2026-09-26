@@ -1,5 +1,5 @@
 name: Sync Apple Certificates & Profiles (Fastlane Match)
-run-name: "Sync Certs: ${{ inputs.platform }} [${{ inputs.type }}]${{ inputs.app != 'all' && format(' ({0})', inputs.app) || ' (All Apps)' }}${{ !inputs.readonly && ' [WRITE]' || '' }}"
+run-name: "Sync Certs: ${{ inputs.platform }} [${{ inputs.type }}]${{ inputs.app != 'all' && format(' ({0})', inputs.app) || ' (All Apps)' }}${{ inputs.platform == 'both' && ' [Parallel Matrix]' || '' }}${{ !inputs.readonly && ' [WRITE]' || '' }}"
 
 on:
   workflow_dispatch:
@@ -88,10 +88,70 @@ env:
   INPUT_CLEAN_OLD_CERTS: ${{ inputs.clean_old_certs }}
 
 jobs:
+  # ============================================================================
+  # 1. Xác định danh sách nền tảng (Matrix) cần chạy dựa trên inputs.platform và inputs.app
+  # ============================================================================
+  prepare-matrix:
+    name: Prepare Platforms Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      platforms: ${{ steps.set-matrix.outputs.platforms }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Compute Target Platforms
+        id: set-matrix
+        env:
+          INPUT_APP: ${{ inputs.app }}
+          INPUT_PLATFORM: ${{ inputs.platform }}
+        run: |
+          ruby -rjson -e '
+            data = JSON.parse(File.read("fastlane/apps.json"))
+            app_input = ENV["INPUT_APP"].to_s.strip
+            platform_input = ENV["INPUT_PLATFORM"].to_s.strip.downcase
+
+            def normalize_p(p)
+              case p.to_s.downcase.strip
+              when "macos", "mac", "osx" then "macos"
+              when "ios" then "ios"
+              else p.to_s.downcase.strip
+              end
+            end
+
+            target_platforms = case platform_input
+                               when "ios" then ["ios"]
+                               when "macos" then ["macos"]
+                               else ["ios", "macos"] # "both"
+                               end
+
+            # Nếu người dùng chọn 1 app cụ thể, chỉ giữ lại platform mà app đó hỗ trợ
+            if app_input != "all" && !app_input.empty? && data[app_input]
+              supported = (data[app_input]["platforms"] || ["ios"]).map { |p| normalize_p(p) }
+              target_platforms = target_platforms.select { |p| supported.include?(p) }
+              target_platforms = ["ios"] if target_platforms.empty?
+            end
+
+            json_out = JSON.generate(target_platforms)
+            puts "Target Platforms Matrix: #{json_out}"
+
+            File.open(ENV["GITHUB_OUTPUT"], "a") do |f|
+              f.puts "platforms=#{json_out}"
+            end
+          '
+
+  # ============================================================================
+  # 2. Thực thi Fastlane Match Sync chạy SONG SONG qua Matrix
+  # ============================================================================
   sync-certs:
-    name: Sync Match Certs (${{ inputs.platform }} -> ${{ inputs.type }})
+    name: "Sync Match Certs (${{ matrix.platform }} -> ${{ inputs.type }})"
+    needs: prepare-matrix
     runs-on: macos-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ fromJson(needs.prepare-matrix.outputs.platforms) }}
 
     steps:
       - name: Checkout Repository
@@ -119,8 +179,8 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: true
 
-      # 4. Thực thi Fastlane Sync Certs (Đổi tên sang biến Fastlane nội bộ)
-      - name: Run Fastlane Match Sync
+      # 4. Thực thi Fastlane Sync Certs theo nền tảng Matrix
+      - name: Run Fastlane Match Sync (${{ matrix.platform }})
         env:
           ASC_KEY_ID: ${{ env.CFG_ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ env.CFG_ASC_ISSUER_ID }}
@@ -137,16 +197,15 @@ jobs:
             ARGS="$ARGS app:$INPUT_APP"
           fi
 
-          if [ "$INPUT_PLATFORM" = "ios" ] || [ "$INPUT_PLATFORM" = "both" ]; then
+          if [ "${{ matrix.platform }}" = "macos" ]; then
+            echo "=================================================="
+            echo "🔑 [macOS] Đồng bộ Certificates & Profiles..."
+            echo "=================================================="
+            bundle exec fastlane mac sync_certs $ARGS
+          else
             echo "=================================================="
             echo "🔑 [iOS] Đồng bộ Certificates & Profiles..."
             echo "=================================================="
             bundle exec fastlane ios sync_certs $ARGS
           fi
 
-          if [ "$INPUT_PLATFORM" = "macos" ] || [ "$INPUT_PLATFORM" = "both" ]; then
-            echo "=================================================="
-            echo "🔑 [macOS] Đồng bộ Certificates & Profiles..."
-            echo "=================================================="
-            bundle exec fastlane mac sync_certs $ARGS
-          fi

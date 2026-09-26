@@ -14,7 +14,7 @@ on:
           - ios
           - macos
       app:
-        description: "Chọn App Key trong apps.json (hoặc 'all' để chạy song song qua Matrix)"
+        description: "Chọn App Key trong apps.json (hoặc 'all' để áp dụng toàn bộ)"
         required: false
         default: "all"
         type: choice
