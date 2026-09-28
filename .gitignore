@@ -13,9 +13,10 @@ fastlane/.env
 fastlane/report.xml
 
 # Workspace directory containing cloned app repos
+.workspace_code/*
+!.workspace_code/gitkeep
 .workspace/*
 !.workspace/gitkeep
-.workspace_code
 # Build artifacts
 *.ipa
 *.pkg

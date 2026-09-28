@@ -226,9 +226,9 @@ jobs:
         with:
           name: android-build-artifacts
           path: |
-            .workspace/*/build/app/outputs/bundle/**/*.aab
-            .workspace/*/build/app/outputs/flutter-apk/**/*.apk
-            .workspace/*/build/aos/symbols/**
-            .workspace/*/build/symbols/**
+            .workspace_code/*/build/app/outputs/bundle/**/*.aab
+            .workspace_code/*/build/app/outputs/flutter-apk/**/*.apk
+            .workspace_code/*/build/aos/symbols/**
+            .workspace_code/*/build/symbols/**
           if-no-files-found: ignore
           retention-days: 14

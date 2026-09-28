@@ -14,7 +14,7 @@ thanhlv-fastlane/
 │   │   ├── api_key_helper.rb          # App Store Connect API Key discovery & Match decryption
 │   │   ├── app_config_helper.rb       # Reading apps.json, resolving bundle IDs & versions
 │   │   ├── cert_helper.rb             # Local keychain & provisioning profile cleanup
-│   │   ├── git_workspace_helper.rb    # Cloning & updating app repos in .workspace
+│   │   ├── git_workspace_helper.rb    # Cloning & updating app repos in .workspace_code
 │   │   ├── google_key_helper.rb       # Google Play service account key encryption/decryption
 │   │   └── metadata_helper.rb         # Two-way store metadata and screenshot processing
 │   └── lanes/                         # Platform-specific lane definitions

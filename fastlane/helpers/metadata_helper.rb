@@ -106,7 +106,6 @@ end
 # 1. options[:metadata_path] (nếu truyền tường minh)
 # 2. Thư mục metadata trong repo tại .workspace_code/<app_key>/metadata/<platform>/ (hoặc fastlane/metadata/<platform>/)
 # 3. Thư mục metadata tập trung trong fastlane/metadata/<app_key>/<platform>/ (nếu có dữ liệu hợp lệ)
-# 4. Thư mục metadata trong .workspace/<app_key>/metadata/<platform>/ (nếu build workspace đã có)
 def resolve_metadata_path(app_key, platform = "ios", options = {})
   if options[:metadata_path] && !options[:metadata_path].to_s.strip.empty?
     return File.expand_path(options[:metadata_path].to_s.strip)
@@ -143,24 +142,6 @@ def resolve_metadata_path(app_key, platform = "ios", options = {})
   central_platform_dir = File.join(central_app_dir, platform_norm)
   if has_valid_metadata_dir?(central_platform_dir)
     return central_platform_dir
-  end
-
-  # 3. Thư mục trong build workspace (.workspace/<app_key>/metadata/<platform>/)
-  workspace_dir = app_workspace_path(app_key)
-  repo_metadata_platform_dir = File.join(workspace_dir, "metadata", platform_norm)
-  repo_fastlane_metadata_platform_dir = File.join(workspace_dir, "fastlane", "metadata", platform_norm)
-  alt_platform_dir = case platform_norm
-                     when "aos" then File.join(workspace_dir, "metadata", "android")
-                     when "macos" then File.join(workspace_dir, "metadata", "mac")
-                     else nil
-                     end
-
-  if has_valid_metadata_dir?(repo_metadata_platform_dir) || Dir.exist?(repo_metadata_platform_dir)
-    return repo_metadata_platform_dir
-  elsif alt_platform_dir && (has_valid_metadata_dir?(alt_platform_dir) || Dir.exist?(alt_platform_dir))
-    return alt_platform_dir
-  elsif has_valid_metadata_dir?(repo_fastlane_metadata_platform_dir) || Dir.exist?(repo_fastlane_metadata_platform_dir)
-    return repo_fastlane_metadata_platform_dir
   end
 
   # Mặc định: Trỏ về repo trong .workspace_code
@@ -1186,7 +1167,7 @@ def download_app_metadata_from_store(app_key, platform = "ios", options = {})
   platform_norm = normalize_platform_name(platform)
   validate_platform_support!(app_key, app_info, platform_norm)
 
-  # Nếu không có folder trong fastlane/metadata/<app_key>, kéo repo về .workspace trước
+  # Nếu không có folder trong fastlane/metadata/<app_key>, kéo repo về .workspace_code trước
   ensure_app_metadata_workspace!(app_key, app_info, options, platform_norm)
 
   metadata_dir = resolve_metadata_path(app_key, platform_norm, options)
@@ -1451,7 +1432,7 @@ def upload_app_metadata_to_store(app_key, platform = "ios", options = {})
   platform_norm = normalize_platform_name(platform)
   validate_platform_support!(app_key, app_info, platform_norm)
 
-  # Nếu không có folder trong fastlane/metadata/<app_key>, kéo repo về .workspace trước
+  # Nếu không có folder trong fastlane/metadata/<app_key>, kéo repo về .workspace_code trước
   ensure_app_metadata_workspace!(app_key, app_info, options, platform_norm)
 
   metadata_dir = resolve_metadata_path(app_key, platform_norm, options)

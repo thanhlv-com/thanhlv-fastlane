@@ -214,9 +214,9 @@ jobs:
         with:
           name: macos-pkg-builds
           path: |
-            .workspace/*/build/macos/pkg/*.pkg
-            .workspace/*/build/macos/pkg/*.dSYM.zip
-            .workspace/*/build/macos/symbols/**
-            .workspace/*/build/symbols/**
+            .workspace_code/*/build/macos/pkg/*.pkg
+            .workspace_code/*/build/macos/pkg/*.dSYM.zip
+            .workspace_code/*/build/macos/symbols/**
+            .workspace_code/*/build/symbols/**
           if-no-files-found: ignore
           retention-days: 14

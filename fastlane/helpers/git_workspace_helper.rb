@@ -1,5 +1,5 @@
 # fastlane/helpers/git_workspace_helper.rb
-# Helper quản lý tải và cập nhật mã nguồn ứng dụng vào thư mục .workspace
+# Helper quản lý tải và cập nhật mã nguồn ứng dụng vào thư mục .workspace_code
 
 require 'fileutils'
 require 'open3'
@@ -21,19 +21,14 @@ end unless defined?(FastlaneCore::UI)
 
 UI = FastlaneCore::UI unless defined?(UI)
 
-# Trả về đường dẫn gốc của thư mục .workspace (dùng cho build & package)
+# Trả về đường dẫn gốc của thư mục .workspace_code (dùng cho build & package & source code)
 def workspace_root_path
-  File.expand_path(File.join(__dir__, "..", "..", ".workspace"))
-end
-
-# Trả về đường dẫn thư mục làm việc của app cụ thể trong .workspace
-def app_workspace_path(app_key)
-  File.join(workspace_root_path, app_key.to_s)
-end
-
-# Trả về đường dẫn gốc của thư mục .workspace_code (chứa mã nguồn & metadata của các repo)
-def workspace_code_root_path
   File.expand_path(File.join(__dir__, "..", "..", ".workspace_code"))
+end
+
+# Trả về đường dẫn gốc của thư mục .workspace_code (alias tương thích)
+def workspace_code_root_path
+  workspace_root_path
 end
 
 # Trả về đường dẫn thư mục repository của app trong .workspace_code
@@ -59,6 +54,11 @@ def app_workspace_code_path(app_key, app_info = nil)
   end
 
   candidate_key
+end
+
+# Trả về đường dẫn thư mục làm việc của app cụ thể trong .workspace_code
+def app_workspace_path(app_key, app_info = nil)
+  app_workspace_code_path(app_key, app_info)
 end
 
 # Chuẩn hoá tên nền tảng (platform)
@@ -112,7 +112,7 @@ def prepare_app_workspace(app_key, app_info, options = {}, target_platform = nil
               options[:skip_git] == true || options[:skip_git] == "true" ||
               options[:skip_git_pull] == true || options[:skip_git_pull] == "true"
 
-  workspace_dir = app_workspace_path(app_key)
+  workspace_dir = app_workspace_path(app_key, app_info)
   FileUtils.mkdir_p(workspace_root_path)
 
   UI.message("📂 ========================================================")

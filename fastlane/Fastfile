@@ -45,7 +45,7 @@ lane :clean_local_profiles do |options|
   clean_local_provisioning_profiles(options)
 end
 
-desc "Chuẩn bị hoặc cập nhật mã nguồn trong .workspace cho 1 app"
+desc "Chuẩn bị hoặc cập nhật mã nguồn trong .workspace_code cho 1 app"
 lane :prepare_workspace do |options|
   app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane prepare_workspace app:OpsFlow_Hub")
   app_info = get_app_config(app_key)

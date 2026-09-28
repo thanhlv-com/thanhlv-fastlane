@@ -67,9 +67,9 @@ help:
 	@echo "      Clone hoặc pull code mới từ danh sách apps.json về thư mục .workspace_code."
 	@echo "      (Mặc định đồng bộ toàn bộ app nếu không truyền APP)."
 	@echo "  $(GREEN)make prepare-workspace APP=<app_key> [REF=main] [FORCE=true]$(RESET)"
-	@echo "      Tải/cập nhật source code cho 1 app cụ thể vào thư mục .workspace."
+	@echo "      Tải/cập nhật source code cho 1 app cụ thể vào thư mục .workspace_code."
 	@echo "  $(GREEN)make clean-workspace [APP=<app_key>]$(RESET)"
-	@echo "      Dọn dẹp thư mục .workspace (của 1 app hoặc toàn bộ)."
+	@echo "      Dọn dẹp thư mục .workspace_code (của 1 app hoặc toàn bộ)."
 	@echo ""
 	@echo "$(BOLD)$(YELLOW)🔑 3. QUẢN LÝ CERTIFICATES & CODE SIGNING:$(RESET)"
 	@echo "  $(GREEN)make sync-certs-ios [APP=OpsFlow_Hub] [TYPE=appstore]$(RESET)"
@@ -113,15 +113,15 @@ help:
 	@echo ""
 	@echo "$(BOLD)$(YELLOW)🚀 5. BUILD & PHÁT HÀNH LOCAL:$(RESET)"
 	@echo "  $(GREEN)make ios-build APP=<app_key> [FLAVOR=...] [EXPORT_METHOD=app-store] [OBFUSCATE=true]$(RESET)"
-	@echo "      Build iOS IPA trong thư mục .workspace (mặc định làm rối mã nguồn: --obfuscate)."
+	@echo "      Build iOS IPA trong thư mục .workspace_code (mặc định làm rối mã nguồn: --obfuscate)."
 	@echo "  $(GREEN)make ios-deploy APP=<app_key> [TARGET=testflight|appstore] [UPLOAD_METADATA=false] [OBFUSCATE=true]$(RESET)"
 	@echo "      Build & Deploy iOS lên TestFlight hoặc App Store."
 	@echo "  $(GREEN)make mac-build APP=<app_key> [FLAVOR=...] [OBFUSCATE=true]$(RESET)"
-	@echo "      Build macOS PKG trong thư mục .workspace (mặc định làm rối mã nguồn: --obfuscate)."
+	@echo "      Build macOS PKG trong thư mục .workspace_code (mặc định làm rối mã nguồn: --obfuscate)."
 	@echo "  $(GREEN)make mac-deploy APP=<app_key> [TARGET=testflight|appstore] [UPLOAD_METADATA=false] [OBFUSCATE=true]$(RESET)"
 	@echo "      Build & Deploy macOS lên TestFlight hoặc Mac App Store."
 	@echo "  $(GREEN)make aos-build APP=<app_key> [TYPE=appbundle|apk] [OBFUSCATE=true]$(RESET)"
-	@echo "      Build Android App Bundle (.aab) hoặc APK trong .workspace (mặc định: --obfuscate)."
+	@echo "      Build Android App Bundle (.aab) hoặc APK trong .workspace_code (mặc định: --obfuscate)."
 	@echo "  $(GREEN)make aos-deploy APP=<app_key> [TRACK=internal|alpha|beta|production] [OBFUSCATE=true]$(RESET)"
 	@echo "      Build Android AAB & Deploy lên Google Play Console."
 	@echo ""
@@ -189,14 +189,14 @@ prepare-workspace:
 	fi
 	fastlane prepare_workspace app:$(APP) ref:$${REF:-} force:$${FORCE:-false}
 
-## Dọn dẹp thư mục .workspace
+## Dọn dẹp thư mục .workspace_code
 clean-workspace:
 	@if [ -n "$(APP)" ]; then \
 		echo "$(YELLOW)🧹 Đang dọn dẹp workspace cho app: $(APP)...$(RESET)"; \
-		rm -rf .workspace/$(APP); \
+		rm -rf .workspace_code/$(APP); \
 	else \
-		echo "$(YELLOW)🧹 Đang dọn dẹp toàn bộ thư mục .workspace...$(RESET)"; \
-		rm -rf .workspace; \
+		echo "$(YELLOW)🧹 Đang dọn dẹp toàn bộ thư mục .workspace_code...$(RESET)"; \
+		rm -rf .workspace_code; \
 	fi
 	@echo "$(GREEN)✔ Hoàn tất dọn dẹp workspace.$(RESET)"
 

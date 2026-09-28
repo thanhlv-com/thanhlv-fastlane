@@ -67,7 +67,7 @@ Dọn dẹp các Provisioning Profile cũ/hết hạn trên máy local
 [bundle exec] fastlane prepare_workspace
 ```
 
-Chuẩn bị hoặc cập nhật mã nguồn trong .workspace cho 1 app
+Chuẩn bị hoặc cập nhật mã nguồn trong .workspace_code cho 1 app
 
 ### init_metadata
 
@@ -338,7 +338,7 @@ Khởi tạo thư mục và các file Metadata template mẫu cho macOS app
 [bundle exec] fastlane aos build
 ```
 
-Build Android APK hoặc App Bundle (.aab) trong .workspace
+Build Android APK hoặc App Bundle (.aab) trong .workspace_code
 
 ### aos build_aos
 
@@ -407,7 +407,7 @@ Khởi tạo thư mục và các file Metadata template mẫu cho Android (AOS)
 [bundle exec] fastlane android build
 ```
 
-Build Android APK hoặc App Bundle (.aab) trong .workspace
+Build Android APK hoặc App Bundle (.aab) trong .workspace_code
 
 ### android build_android
 

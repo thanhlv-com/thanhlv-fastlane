@@ -97,7 +97,7 @@ platform :mac do
     app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane mac build app:OpsFlow_Hub [version:1.0.0] [build_number:1]")
     app_info = get_app_config(app_key)
     
-    # 1. Tải hoặc cập nhật mã nguồn vào thư mục .workspace
+    # 1. Tải hoặc cập nhật mã nguồn vào thư mục .workspace_code
     workspace_dir = prepare_app_workspace(app_key, app_info, options, "macos")
 
     bundle_id = resolve_bundle_id(app_info, "macos", options)
@@ -265,7 +265,7 @@ platform :mac do
       readonly: true
     )
 
-    # 2. Build macOS PKG trong .workspace
+    # 2. Build macOS PKG trong .workspace_code
     pkg_file = build_macos(
       options.merge(
         app: app_key,

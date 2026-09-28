@@ -80,7 +80,7 @@ platform :ios do
     app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane ios build app:OpsFlow_Hub [version:1.0.0] [build_number:1]")
     app_info = get_app_config(app_key)
     
-    # 1. Tải hoặc cập nhật mã nguồn vào thư mục .workspace
+    # 1. Tải hoặc cập nhật mã nguồn vào thư mục .workspace_code
     workspace_dir = prepare_app_workspace(app_key, app_info, options, "ios")
 
     bundle_id = resolve_bundle_id(app_info, "ios", options)
@@ -217,7 +217,7 @@ platform :ios do
       readonly: true
     )
 
-    # 2. Build IPA trong .workspace
+    # 2. Build IPA trong .workspace_code
     ipa_file = build_ios(
       options.merge(
         app: app_key,

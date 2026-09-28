@@ -300,7 +300,6 @@ jobs:
           name: metadata-${{ inputs.app }}-${{ matrix.platform }}
           path: |
             fastlane/metadata/
-            .workspace/*/metadata/
             .workspace_code/*/metadata/
           if-no-files-found: ignore
           retention-days: 14

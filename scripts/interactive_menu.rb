@@ -454,7 +454,7 @@ class InteractiveMenu
   def handle_prepare_workspace
     sub_choice = prompt_choice("Chọn Thao Tác Quản Lý Workspace", [
       { label: "📥 Đồng bộ source code vào .workspace_code (Clone/Pull từ apps.json)", value: "workspace_code" },
-      { label: "🛠️  Chuẩn bị build workspace trong .workspace (Fastlane prepare_workspace)", value: "build_workspace" }
+      { label: "🛠️  Chuẩn bị build workspace trong .workspace_code (Fastlane prepare_workspace)", value: "build_workspace" }
     ])
 
     if sub_choice == "workspace_code"

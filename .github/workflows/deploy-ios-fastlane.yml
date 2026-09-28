@@ -217,9 +217,9 @@ jobs:
         with:
           name: ios-ipa-builds
           path: |
-            .workspace/*/build/ios/ipa/*.ipa
-            .workspace/*/build/ios/ipa/*.dSYM.zip
-            .workspace/*/build/ios/symbols/**
-            .workspace/*/build/symbols/**
+            .workspace_code/*/build/ios/ipa/*.ipa
+            .workspace_code/*/build/ios/ipa/*.dSYM.zip
+            .workspace_code/*/build/ios/symbols/**
+            .workspace_code/*/build/symbols/**
           if-no-files-found: ignore
           retention-days: 14

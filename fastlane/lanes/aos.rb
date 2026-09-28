@@ -5,7 +5,7 @@ def build_aos_app(options)
   app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane aos build app:OpsFlow_Hub [type:apk|appbundle] [version:1.0.0] [build_number:1]")
   app_info = get_app_config(app_key)
   
-  # 1. Tải hoặc cập nhật mã nguồn vào thư mục .workspace
+  # 1. Tải hoặc cập nhật mã nguồn vào thư mục .workspace_code
   workspace_dir = prepare_app_workspace(app_key, app_info, options, "aos")
 
   package_name = resolve_bundle_id(app_info, "aos", options)
@@ -94,7 +94,7 @@ platform :aos do
     setup_ci if is_ci
   end
 
-  desc "Build Android APK hoặc App Bundle (.aab) trong .workspace"
+  desc "Build Android APK hoặc App Bundle (.aab) trong .workspace_code"
   lane :build do |options|
     build_aos_app(options)
   end
@@ -145,7 +145,7 @@ platform :android do
     setup_ci if is_ci
   end
 
-  desc "Build Android APK hoặc App Bundle (.aab) trong .workspace"
+  desc "Build Android APK hoặc App Bundle (.aab) trong .workspace_code"
   lane :build do |options|
     build_aos_app(options)
   end
