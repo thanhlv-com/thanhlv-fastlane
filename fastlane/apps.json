@@ -25,7 +25,7 @@
     ],
     "bundle_id": "com.thanhlv.remove_app",
     "package_name": "com.thanhlv.remove_app",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "obfuscate": true,
     "description": "Find apps fast and uninstall one app or multiple apps with clear progress."
   },
