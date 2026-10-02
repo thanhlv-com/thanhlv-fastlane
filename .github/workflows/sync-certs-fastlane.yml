@@ -213,11 +213,11 @@ jobs:
       # 5. Gửi thông báo Telegram khi hoàn thành hoặc có lỗi
       - name: Send Telegram Notification
         if: always()
-        uses: cbrgm/telegram-github-action@v1
+        uses: appleboy/telegram-action@master
         with:
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           to: ${{ vars.TELEGRAM_CHAT_ID }}
-          thread-id: ${{ vars.MESSAGE_THREAD_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message_thread_id: ${{ vars.MESSAGE_THREAD_ID }}
           message: |
             🔐 [Fastlane Match Sync Certs]
             • Platform: ${{ matrix.platform }}
