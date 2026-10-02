@@ -232,3 +232,22 @@ jobs:
             .workspace_code/*/build/symbols/**
           if-no-files-found: ignore
           retention-days: 14
+
+      # 8. Gửi thông báo Telegram khi hoàn thành hoặc có lỗi
+      - name: Send Telegram Notification
+        if: always()
+        uses: cbrgm/telegram-github-action@v1
+        with:
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          to: ${{ vars.TELEGRAM_CHAT_ID }}
+          thread-id: ${{ vars.MESSAGE_THREAD_ID }}
+          message: |
+            🤖 [Android Build & Deploy]
+            • App: ${{ inputs.app }}
+            • Action: ${{ inputs.action }}
+            • Track/Type: ${{ inputs.action == 'deploy' && inputs.track || inputs.build_type }}
+            • Run Number: #${{ github.run_number }}
+            • Status: ${{ job.status == 'success' && '✅ SUCCESS' || (job.status == 'cancelled' && '⚠️ CANCELLED' || '❌ FAILED') }}
+            • Triggered by: ${{ github.actor }}
+            • URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
