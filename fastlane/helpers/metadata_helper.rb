@@ -1264,9 +1264,13 @@ def download_app_metadata_from_store(app_key, platform = "ios", options = {})
 end
 
 # Chuẩn hoá và đồng bộ thư mục screenshots cho iOS & macOS trước khi gọi Deliver
+# Apple App Store & Fastlane Deliver hỗ trợ thư mục screenshots/default/ hoặc screenshots/en-US/ làm fallback chung cho mọi ngôn ngữ:
 # 1. Nếu có file ảnh nằm trong metadata_dir/<locale>/*.png -> đồng bộ sang screenshots_dir/<locale>/*.png
-# 2. Nếu có file ảnh nằm phẳng ở gốc screenshots_dir/*.png -> đồng bộ sang screenshots_dir/<locale>/*.png cho các locale
-# 3. Thống kê và kiểm tra số lượng screenshots theo từng locale để thông báo cho người dùng
+# 2. Nếu có file ảnh nằm trong screenshots/default/*.png -> gom và sẵn sàng làm fallback chung
+# 3. Nếu có file ảnh nằm phẳng ở gốc screenshots_dir/*.png:
+#    - Tự động di chuyển/gom vào screenshots_dir/default/ (hoặc screenshots_dir/en-US/) để dùng chung cho mọi ngôn ngữ,
+#      tránh copy trùng lặp làm phình to repository git hàng trăm MB qua 20 ngôn ngữ.
+# 4. Thống kê và kiểm tra số lượng screenshots theo từng locale để thông báo cho người dùng
 def prepare_and_normalize_app_store_screenshots!(metadata_dir, screenshots_dir)
   return {} unless Dir.exist?(screenshots_dir) || Dir.exist?(metadata_dir)
 
@@ -1282,7 +1286,7 @@ def prepare_and_normalize_app_store_screenshots!(metadata_dir, screenshots_dir)
   end
   meta_locales = ["en-US"] if meta_locales.empty?
 
-  # 2. Đồng bộ các file ảnh nằm trực tiếp trong folder locale của metadata_dir (ví dụ: metadata/ios/en-US/*.png)
+  # 2. Đồng bộ các file ảnh nằm trực tiếp trong folder locale của metadata_dir (ví dụ: metadata/ios/vi/*.png)
   meta_locales.each do |locale|
     loc_dir = File.join(metadata_dir, locale)
     next unless Dir.exist?(loc_dir)
@@ -1303,29 +1307,43 @@ def prepare_and_normalize_app_store_screenshots!(metadata_dir, screenshots_dir)
     UI.message("📸 Tự động đồng bộ #{synced_count} ảnh từ #{locale}/ sang #{screenshots_dir}/#{locale}/") if synced_count > 0
   end
 
-  # 3. Đồng bộ các file ảnh nằm phẳng ở gốc screenshots_dir (ví dụ: screenshots/*.png) vào từng folder locale
+  # 3. Hỗ trợ screenshots dùng chung: gom ảnh phẳng ở gốc screenshots/ hoặc trong metadata_dir/screenshots/ vào thư mục default/
   flat_images = Dir.glob(File.join(screenshots_dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}")).uniq
+  default_dir = File.join(screenshots_dir, "default")
+
   unless flat_images.empty?
-    meta_locales.each do |locale|
-      target_loc_dir = File.join(screenshots_dir, locale)
-      FileUtils.mkdir_p(target_loc_dir)
-      synced_count = 0
-      flat_images.each do |img|
-        target_file = File.join(target_loc_dir, File.basename(img))
-        unless File.exist?(target_file) && FileUtils.identical?(img, target_file)
-          FileUtils.cp(img, target_file)
-          synced_count += 1
-        end
+    FileUtils.mkdir_p(default_dir)
+    synced_count = 0
+    flat_images.each do |img|
+      target_file = File.join(default_dir, File.basename(img))
+      unless File.exist?(target_file) && FileUtils.identical?(img, target_file)
+        FileUtils.cp(img, target_file)
+        synced_count += 1
       end
-      UI.message("📸 Tự động gom #{synced_count} ảnh từ thư mục gốc screenshots vào: #{screenshots_dir}/#{locale}/") if synced_count > 0
     end
+    UI.message("📸 Tự động đồng bộ #{synced_count} ảnh dùng chung từ thư mục gốc screenshots vào: #{default_dir}/") if synced_count > 0
+  end
+
+  # Đồng thời kiểm tra nếu có ảnh trong default/ thì cũng đảm bảo en-US có liên kết nếu cần fallback tuyệt đối
+  default_images = Dir.exist?(default_dir) ? Dir.glob(File.join(default_dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}")).uniq : []
+  en_us_dir = File.join(screenshots_dir, "en-US")
+  en_us_images = Dir.exist?(en_us_dir) ? Dir.glob(File.join(en_us_dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}")).uniq : []
+
+  if !default_images.empty? && en_us_images.empty?
+    # Đồng bộ sang en-US (ngôn ngữ gốc chuẩn của App Store) để tương thích tối đa với Deliver
+    FileUtils.mkdir_p(en_us_dir)
+    default_images.each do |img|
+      target_file = File.join(en_us_dir, File.basename(img))
+      FileUtils.cp(img, target_file) unless File.exist?(target_file) && FileUtils.identical?(img, target_file)
+    end
+    UI.message("📸 Tự động ánh xạ ảnh từ default/ sang en-US/ làm fallback chuẩn cho App Store.")
   end
 
   # 4. Thống kê và validate danh sách ảnh trong screenshots_dir/<locale>/
   stats = {}
   Dir.glob(File.join(screenshots_dir, "*")).select { |d| File.directory?(d) }.each do |dir|
     locale = File.basename(dir)
-    next if ["appleTV", "iMessage", "default"].include?(locale)
+    next if ["appleTV", "iMessage"].include?(locale)
 
     shots = Dir.glob(File.join(dir, "*.{png,jpg,jpeg,PNG,JPG,JPEG}")).uniq
     stats[locale] = shots.count unless shots.empty?
@@ -1474,8 +1492,8 @@ def upload_app_metadata_to_store(app_key, platform = "ios", options = {})
     unless skip_screenshots
       screenshot_stats = prepare_and_normalize_app_store_screenshots!(metadata_dir, screenshots_dir)
       if screenshot_stats.empty?
-        UI.important("⚠️ CẢNH BÁO: Không tìm thấy ảnh Screenshot nào trong #{screenshots_dir}/<locale>/!")
-        UI.important("   Cấu trúc yêu cầu của Fastlane Deliver: #{screenshots_dir}/<locale>/<ten_anh>.png (ví dụ: en-US, vi)")
+        UI.important("⚠️ CẢNH BÁO: Không tìm thấy ảnh Screenshot nào trong #{screenshots_dir}/default/ hoặc #{screenshots_dir}/<locale>/!")
+        UI.important("   Cấu trúc hỗ trợ: #{screenshots_dir}/default/<ten_anh>.png (dùng chung cho mọi ngôn ngữ) hoặc #{screenshots_dir}/<locale>/")
       else
         UI.success("📸 Danh sách screenshots sẵn sàng tải lên App Store Connect:")
         screenshot_stats.each do |loc, count|
