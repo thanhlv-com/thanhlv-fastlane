@@ -224,18 +224,23 @@ jobs:
       # 7. Gửi thông báo Telegram khi hoàn thành hoặc có lỗi
       - name: Send Telegram Notification
         if: always()
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ vars.TELEGRAM_CHAT_ID }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          message_thread_id: ${{ vars.MESSAGE_THREAD_ID }}
-          message: |
-            🖥️ [macOS Build & Deploy]
-            • App: ${{ inputs.app }}
-            • Action: ${{ inputs.action }}
-            • Target: ${{ inputs.target }}
-            • Run Number: #${{ github.run_number }}
-            • Status: ${{ job.status == 'success' && '✅ SUCCESS' || (job.status == 'cancelled' && '⚠️ CANCELLED' || '❌ FAILED') }}
-            • Triggered by: ${{ github.actor }}
-            • URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          MESSAGE_THREAD_ID: ${{ vars.MESSAGE_THREAD_ID }}
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then ICON="✅ SUCCESS"; elif [ "$STATUS" = "cancelled" ]; then ICON="⚠️ CANCELLED"; else ICON="❌ FAILED"; fi
+          MESSAGE="🖥️ [macOS Build & Deploy]
+          • App: ${{ inputs.app }}
+          • Action: ${{ inputs.action }}
+          • Target: ${{ inputs.target }}
+          • Run Number: #${{ github.run_number }}
+          • Status: ${ICON}
+          • Triggered by: ${{ github.actor }}
+          • URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d message_thread_id="${MESSAGE_THREAD_ID}" \
+            --data-urlencode text="${MESSAGE}"
 
