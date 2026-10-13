@@ -220,6 +220,23 @@
     "version": "1.0.0",
     "obfuscate": true,
     "description": "Ứng dụng gõ mõ niệm phật chuẩn âm chùa, tích lũy công đức với chế độ auto click tốc độ 0.25s, 0.5s, 1s, 2s."
+  },
+  "web-clone": {
+    "app_name": "Web Clone - Multi-Session Browser",
+    "git_url": "git@github.com:thanhlv-com/web-clone.git",
+    "branch": "main",
+    "framework": "electron",
+    "package_manager": "npm",
+    "platforms": [
+      "macos",
+      "windows",
+      "linux"
+    ],
+    "bundle_id": "com.thanhlv.webclone",
+    "package_name": "com.thanhlv.webclone",
+    "version": "1.0.0",
+    "obfuscate": false,
+    "description": "Multi-Session Browser with isolated sessions and separate logins."
   }
 }
 

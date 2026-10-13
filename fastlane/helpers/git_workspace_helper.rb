@@ -159,14 +159,52 @@ def prepare_app_workspace(app_key, app_info, options = {}, target_platform = nil
     UI.success("🎉 Clone mã nguồn thành công vào: #{workspace_dir}")
   end
 
-  # Chạy flutter pub get nếu là dự án Flutter
-  pubspec_file = File.join(workspace_dir, "pubspec.yaml")
-  if File.exist?(pubspec_file) && (options[:skip_pub_get] != true && options[:skip_pub_get] != "true")
-    UI.message("📦 Phát hiện dự án Flutter, đang chạy 'flutter pub get'...")
-    run_flutter_cmd("flutter pub get", workspace_dir)
+  # Cài đặt dependencies tuỳ theo loại framework của ứng dụng
+  if is_electron_app?(app_info, workspace_dir)
+    package_file = File.join(workspace_dir, "package.json")
+    if File.exist?(package_file) && (options[:skip_deps] != true && options[:skip_deps] != "true" && options[:skip_npm_install] != true && options[:skip_npm_install] != "true")
+      pkg_mgr = (app_info["package_manager"] || "npm").to_s.downcase
+      UI.message("📦 Phát hiện dự án Electron/Node, đang chạy '#{pkg_mgr} install'...")
+      run_node_cmd("#{pkg_mgr} install", workspace_dir)
+    end
+  else
+    pubspec_file = File.join(workspace_dir, "pubspec.yaml")
+    if File.exist?(pubspec_file) && (options[:skip_pub_get] != true && options[:skip_pub_get] != "true")
+      UI.message("📦 Phát hiện dự án Flutter, đang chạy 'flutter pub get'...")
+      run_flutter_cmd("flutter pub get", workspace_dir)
+    end
   end
 
   workspace_dir
+end
+
+# Kiểm tra app có phải framework Electron hay không
+def is_electron_app?(app_info = nil, workspace_dir = nil)
+  if app_info && app_info["framework"]
+    return app_info["framework"].to_s.downcase == "electron"
+  end
+
+  if workspace_dir && File.directory?(workspace_dir)
+    package_json = File.join(workspace_dir, "package.json")
+    pubspec_file = File.join(workspace_dir, "pubspec.yaml")
+    return File.exist?(package_json) && !File.exist?(pubspec_file)
+  end
+
+  false
+end
+
+# Thực thi lệnh Node.js / NPM trong thư mục workspace với môi trường sạch
+def run_node_cmd(command, working_dir)
+  clean_cmd = "env -u GEM_HOME -u GEM_PATH -u BUNDLE_BIN_PATH -u BUNDLE_GEMFILE -u RUBYOPT #{command}"
+  full_cmd = "cd \"#{working_dir}\" && #{clean_cmd}"
+
+  if defined?(Bundler)
+    Bundler.with_unbundled_env do
+      sh(full_cmd)
+    end
+  else
+    sh(full_cmd)
+  end
 end
 
 # Thực thi lệnh Flutter trong thư mục workspace với môi trường sạch

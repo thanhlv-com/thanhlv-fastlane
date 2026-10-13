@@ -22,6 +22,7 @@ on:
           - "app-dem-tien-china"
           - "app-dem-tien-eur"
           - "app-go-mo-niem-phat"
+          - "web-clone"
       action:
         description: "Hành động thực hiện"
         required: true
@@ -39,6 +40,7 @@ on:
         options:
           - testflight
           - appstore
+          - standalone
       version:
         description: "Version (Tùy chọn, để trống sẽ lấy từ apps.json/pubspec.yaml)"
         required: false
@@ -132,6 +134,12 @@ jobs:
           flutter-version: ${{ env.INPUT_FLUTTER_VERSION != '' && env.INPUT_FLUTTER_VERSION || '' }}
           cache: true
 
+      # 3.1 Thiết lập Node.js (cho các ứng dụng Desktop Electron)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       # 4. Thiết lập Ruby & Cài đặt Fastlane qua Bundler (có cache)
       - name: Setup Ruby & Bundler
         uses: ruby/setup-ruby@v1
@@ -193,7 +201,7 @@ jobs:
               elif [ "$ACTION_TYPE" = "upload_metadata" ]; then
                 bundle exec fastlane mac upload_metadata app:$app_key $EXTRA_ARGS || exit 1
               else
-                bundle exec fastlane mac build app:$app_key $EXTRA_ARGS || exit 1
+                bundle exec fastlane mac build app:$app_key target:$TARGET_ENV $EXTRA_ARGS || exit 1
               fi
             done
           else
@@ -203,7 +211,7 @@ jobs:
             elif [ "$ACTION_TYPE" = "upload_metadata" ]; then
               bundle exec fastlane mac upload_metadata app:$TARGET_APP $EXTRA_ARGS
             else
-              bundle exec fastlane mac build app:$TARGET_APP $EXTRA_ARGS
+              bundle exec fastlane mac build app:$TARGET_APP target:$TARGET_ENV $EXTRA_ARGS
             fi
           fi
 
@@ -218,6 +226,10 @@ jobs:
             .workspace_code/*/build/macos/pkg/*.dSYM.zip
             .workspace_code/*/build/macos/symbols/**
             .workspace_code/*/build/symbols/**
+            .workspace_code/*/dist/*.dmg
+            .workspace_code/*/dist/*.zip
+            .workspace_code/*/dist/*.pkg
+            .workspace_code/*/dist/mas/*.pkg
           if-no-files-found: ignore
           retention-days: 14
 

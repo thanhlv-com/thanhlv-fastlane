@@ -41,6 +41,42 @@ platform :windows do
     UI.message("🚀 Obfuscate: #{obfuscate_enabled ? 'Bật (--obfuscate)' : 'Tắt'}")
     UI.message("🚀 ========================================================")
 
+    # Xử lý riêng cho dự án Electron Desktop
+    if is_electron_app?(app_info, workspace_dir)
+      UI.message("⚡ Phát hiện dự án Electron Desktop. Bắt đầu đóng gói Windows qua electron-builder...")
+      pkg_mgr = (app_info["package_manager"] || "npm").to_s.downcase
+
+      node_modules = File.join(workspace_dir, "node_modules")
+      unless File.directory?(node_modules)
+        UI.message("📦 Cài đặt dependencies cho Electron: #{pkg_mgr} install...")
+        run_node_cmd("#{pkg_mgr} install", workspace_dir)
+      end
+
+      package_json_path = File.join(workspace_dir, "package.json")
+      pkg_json = JSON.parse(File.read(package_json_path)) rescue {}
+      scripts = pkg_json["scripts"] || {}
+
+      build_cmd = if scripts["build:win"]
+                    "#{pkg_mgr} run build:win"
+                  elsif scripts["build"]
+                    "#{pkg_mgr} run build && npx electron-builder --win"
+                  else
+                    "npx electron-builder --win"
+                  end
+
+      UI.message("🛠 Đang đóng gói Electron Windows: #{build_cmd}")
+      run_node_cmd(build_cmd, workspace_dir)
+
+      dist_dir = File.join(workspace_dir, "dist")
+      exe_files = Dir.glob(File.join(dist_dir, "*.exe"))
+      artifact_path = exe_files.first
+
+      UI.success("🎉 Đóng gói Electron Windows thành công!")
+      UI.success("📦 Thư mục output: #{dist_dir}")
+      UI.success("📦 File sản phẩm: #{artifact_path}") if artifact_path
+      return artifact_path || dist_dir
+    end
+
     build_args = []
     build_args << "--build-name=#{version_name}" if version_name && !version_name.empty?
     build_args << "--build-number=#{build_number}" if build_number && !build_number.empty?

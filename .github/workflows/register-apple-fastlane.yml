@@ -34,6 +34,7 @@ on:
           - "app-dem-tien-china"
           - "app-dem-tien-eur"
           - "app-go-mo-niem-phat"
+          - "web-clone"
 
 # ==============================================================================
 # KHAI BÁO TẬP TRUNG TẤT CẢ BIẾN MÔI TRƯỜNG & SECRETS TỪ GITHUB Ở ĐẦU FILE

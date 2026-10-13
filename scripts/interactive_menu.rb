@@ -260,7 +260,11 @@ class InteractiveMenu
       ])
       cmd = "make ios-build APP=#{app_key} EXPORT_METHOD=#{export_method} OBFUSCATE=#{obfuscate}"
     when "macos"
-      cmd = "make mac-build APP=#{app_key} OBFUSCATE=#{obfuscate}"
+      target_choice = prompt_choice("Chọn Mục Tiêu Build macOS", [
+        { label: "📦 Standalone (Build & Ký DMG - Phân phối ngoài, không push Store)", value: "standalone" },
+        { label: "🏪 Mac App Store (Build & Ký PKG - Sẵn sàng cho App Store / TestFlight)", value: "appstore" }
+      ])
+      cmd = "make mac-build APP=#{app_key} TARGET=#{target_choice} OBFUSCATE=#{obfuscate}"
     when "aos"
       b_type = prompt_choice("Chọn Định Dạng Build", [
         { label: "App Bundle (.aab) - Chuẩn Google Play", value: "appbundle" },

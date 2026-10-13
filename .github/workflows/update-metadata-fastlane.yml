@@ -26,6 +26,7 @@ on:
           - "app-dem-tien-china"
           - "app-dem-tien-eur"
           - "app-go-mo-niem-phat"
+          - "web-clone"
       platform:
         description: "Nền tảng mục tiêu"
         required: true

@@ -116,8 +116,8 @@ help:
 	@echo "      Build iOS IPA trong thư mục .workspace_code (mặc định làm rối mã nguồn: --obfuscate)."
 	@echo "  $(GREEN)make ios-deploy APP=<app_key> [TARGET=testflight|appstore] [UPLOAD_METADATA=false] [OBFUSCATE=true]$(RESET)"
 	@echo "      Build & Deploy iOS lên TestFlight hoặc App Store."
-	@echo "  $(GREEN)make mac-build APP=<app_key> [FLAVOR=...] [OBFUSCATE=true]$(RESET)"
-	@echo "      Build macOS PKG trong thư mục .workspace_code (mặc định làm rối mã nguồn: --obfuscate)."
+	@echo "  $(GREEN)make mac-build APP=<app_key> [TARGET=standalone|appstore] [OBFUSCATE=true]$(RESET)"
+	@echo "      Build macOS: TARGET=standalone (mặc định: ký DMG, không push Store) hoặc TARGET=appstore (PKG cho Store)."
 	@echo "  $(GREEN)make mac-deploy APP=<app_key> [TARGET=testflight|appstore] [UPLOAD_METADATA=false] [OBFUSCATE=true]$(RESET)"
 	@echo "      Build & Deploy macOS lên TestFlight hoặc Mac App Store."
 	@echo "  $(GREEN)make aos-build APP=<app_key> [TYPE=appbundle|apk] [OBFUSCATE=true]$(RESET)"
@@ -287,10 +287,10 @@ ios-deploy:
 # macOS
 mac-build:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make mac-build APP=OpsFlow_Hub [FLAVOR=...] [OBFUSCATE=true]$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make mac-build APP=OpsFlow_Hub [TARGET=standalone|appstore] [FLAVOR=...] [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane mac build app:$(APP) flavor:$${FLAVOR:-} obfuscate:$${OBFUSCATE:-} uses_non_exempt_encryption:$${USES_NON_EXEMPT_ENCRYPTION:-}
+	fastlane mac build app:$(APP) flavor:$${FLAVOR:-} target:$${TARGET:-standalone} export_method:$${EXPORT_METHOD:-} obfuscate:$${OBFUSCATE:-} uses_non_exempt_encryption:$${USES_NON_EXEMPT_ENCRYPTION:-}
 
 mac-deploy:
 	@if [ -z "$(APP)" ]; then \

@@ -34,6 +34,7 @@ on:
           - "app-dem-tien-china"
           - "app-dem-tien-eur"
           - "app-go-mo-niem-phat"
+          - "web-clone"
       type:
         description: "Loại Certificate / Profile"
         required: true
