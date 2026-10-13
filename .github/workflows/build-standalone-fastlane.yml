@@ -134,6 +134,15 @@ jobs:
           echo "🚀 Đang thực thi: fastlane standalone mac_build app:$INPUT_APP $EXTRA_ARGS"
           bundle exec fastlane standalone mac_build app:$INPUT_APP $EXTRA_ARGS
 
+      # 5.1 Thu thập sản phẩm đóng gói ra thư mục build_output để upload không bị bỏ sót bởi thư mục ẩn .workspace_code
+      - name: Collect macOS Artifacts
+        if: always()
+        run: |
+          mkdir -p build_output
+          find .workspace_code -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \;
+          echo "📦 Danh sách file trong build_output:"
+          ls -la build_output/
+
       # 6. Upload DMG & ZIP Artifacts
       - name: Upload macOS Standalone Artifacts
         if: always()
@@ -141,10 +150,12 @@ jobs:
         with:
           name: standalone-macos-${{ inputs.app }}-artifacts
           path: |
+            build_output/*
             .workspace_code/*/dist/*.dmg
             .workspace_code/*/dist/*.zip
             .workspace_code/*/dist/*.blockmap
-          if-no-files-found: ignore
+          include-hidden-files: true
+          if-no-files-found: warn
           retention-days: 14
 
       # 7. Gửi thông báo Telegram
@@ -220,15 +231,27 @@ jobs:
           echo "🚀 Đang thực thi: fastlane standalone win_build app:$INPUT_APP $EXTRA_ARGS"
           bundle exec fastlane standalone win_build app:$INPUT_APP $EXTRA_ARGS
 
+      # 5.1 Thu thập sản phẩm đóng gói ra thư mục build_output để upload
+      - name: Collect Windows Artifacts
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p build_output
+          find .workspace_code -type f \( -name "*.exe" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \;
+          echo "📦 Danh sách file trong build_output:"
+          ls -la build_output/
+
       - name: Upload Windows Standalone Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: standalone-windows-${{ inputs.app }}-artifacts
           path: |
+            build_output/*
             .workspace_code/*/dist/*.exe
             .workspace_code/*/dist/*.blockmap
-          if-no-files-found: ignore
+          include-hidden-files: true
+          if-no-files-found: warn
           retention-days: 14
 
       - name: Send Telegram Notification
@@ -302,16 +325,27 @@ jobs:
           echo "🚀 Đang thực thi: fastlane standalone linux_build app:$INPUT_APP $EXTRA_ARGS"
           bundle exec fastlane standalone linux_build app:$INPUT_APP $EXTRA_ARGS
 
+      # 5.1 Thu thập sản phẩm đóng gói ra thư mục build_output để upload
+      - name: Collect Linux Artifacts
+        if: always()
+        run: |
+          mkdir -p build_output
+          find .workspace_code -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \;
+          echo "📦 Danh sách file trong build_output:"
+          ls -la build_output/
+
       - name: Upload Linux Standalone Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: standalone-linux-${{ inputs.app }}-artifacts
           path: |
+            build_output/*
             .workspace_code/*/dist/*.AppImage
             .workspace_code/*/dist/*.deb
             .workspace_code/*/dist/*.snap
-          if-no-files-found: ignore
+          include-hidden-files: true
+          if-no-files-found: warn
           retention-days: 14
 
       - name: Send Telegram Notification
