@@ -176,7 +176,7 @@ platform :mac do
         UI.success("📦 File sản phẩm DMG: #{artifact_path}") if artifact_path
       end
 
-      return artifact_path || dist_dir
+      next artifact_path || dist_dir
     end
 
     # 1.2 Cấu hình mặc định Export Compliance trong Info.plist (Missing Compliance -> None of the algorithms mentioned above)
@@ -334,7 +334,8 @@ platform :mac do
         app: app_key,
         version: version_name,
         build_number: build_number,
-        skip_certs: true
+        skip_certs: true,
+        target: target
       )
     )
 

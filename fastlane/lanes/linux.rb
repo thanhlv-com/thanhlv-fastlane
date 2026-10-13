@@ -74,7 +74,7 @@ platform :linux do
       UI.success("🎉 Đóng gói Electron Linux thành công!")
       UI.success("📦 Thư mục output: #{dist_dir}")
       UI.success("📦 File sản phẩm: #{artifact_path}") if artifact_path
-      return artifact_path || dist_dir
+      next artifact_path || dist_dir
     end
 
     build_args = []
