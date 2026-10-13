@@ -130,6 +130,8 @@ help:
 	@echo "      Build Windows Standalone (.exe) không qua App Store (Electron / Flutter)."
 	@echo "  $(GREEN)make standalone-linux APP=<app_key>$(RESET)"
 	@echo "      Build Linux Standalone (.AppImage / .deb) không qua App Store."
+	@echo "  $(GREEN)make standalone-all APP=<app_key>$(RESET)"
+	@echo "      Build tất cả các nền tảng Standalone (macOS, Windows, Linux) cùng lúc."
 	@echo ""
 	@echo "$(BOLD)$(CYAN)====================================================================$(RESET)"
 	@echo ""
@@ -361,14 +363,22 @@ standalone-linux:
 
 standalone-build:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make standalone-build APP=web-clone [PLATFORM=macos|windows|linux]$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make standalone-build APP=web-clone [PLATFORM=all|macos|windows|linux]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane standalone build app:$(APP) platform:$${PLATFORM:-macos} version:$${VERSION:-} build_number:$${BUILD_NUMBER:-} skip_certs:$${SKIP_CERTS:-true}
+	fastlane standalone build app:$(APP) platform:$${PLATFORM:-all} version:$${VERSION:-} build_number:$${BUILD_NUMBER:-} skip_certs:$${SKIP_CERTS:-true}
+
+standalone-all:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make standalone-all APP=web-clone [VERSION=...]$(RESET)"; \
+		exit 1; \
+	fi
+	fastlane standalone build app:$(APP) platform:all version:$${VERSION:-} build_number:$${BUILD_NUMBER:-} skip_certs:$${SKIP_CERTS:-true}
 
 mac-standalone: standalone-mac
 win-standalone: standalone-win
 linux-standalone: standalone-linux
+all-standalone: standalone-all
 
 # ==============================================================================
 # 5. QUẢN LÝ & ĐỒNG BỘ 2 CHIỀU METADATA (PULL & PUSH)

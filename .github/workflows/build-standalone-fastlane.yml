@@ -12,11 +12,12 @@ on:
         options:
           - "web-clone"
       platform:
-        description: "Nền tảng build Standalone"
+        description: "Nền tảng build Standalone ('all' để build đồng thời cả macOS, Windows, Linux)"
         required: true
-        default: "macos"
+        default: "all"
         type: choice
         options:
+          - "all"
           - "macos"
           - "windows"
           - "linux"
@@ -67,7 +68,7 @@ env:
 jobs:
   build-macos:
     name: Build macOS Standalone (${{ inputs.app }})
-    if: inputs.platform == 'macos'
+    if: inputs.platform == 'all' || inputs.platform == 'macos'
     runs-on: macos-latest
     timeout-minutes: 60
 
@@ -182,7 +183,7 @@ jobs:
 
   build-windows:
     name: Build Windows Standalone (${{ inputs.app }})
-    if: inputs.platform == 'windows'
+    if: inputs.platform == 'all' || inputs.platform == 'windows'
     runs-on: windows-latest
     timeout-minutes: 60
 
@@ -237,7 +238,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p build_output
-          find .workspace_code -type f \( -name "*.exe" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \;
+          shopt -s globstar nullglob
+          cp -f .workspace_code/**/dist/*.exe .workspace_code/**/dist/*.blockmap build_output/ 2>/dev/null || true
+          find .workspace_code -type f \( -name "*.exe" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \; 2>/dev/null || true
           echo "📦 Danh sách file trong build_output:"
           ls -la build_output/
 
@@ -278,7 +281,7 @@ jobs:
 
   build-linux:
     name: Build Linux Standalone (${{ inputs.app }})
-    if: inputs.platform == 'linux'
+    if: inputs.platform == 'all' || inputs.platform == 'linux'
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -330,7 +333,9 @@ jobs:
         if: always()
         run: |
           mkdir -p build_output
-          find .workspace_code -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \;
+          shopt -s globstar nullglob
+          cp -f .workspace_code/**/dist/*.AppImage .workspace_code/**/dist/*.deb .workspace_code/**/dist/*.snap .workspace_code/**/dist/*.blockmap build_output/ 2>/dev/null || true
+          find .workspace_code -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \; 2>/dev/null || true
           echo "📦 Danh sách file trong build_output:"
           ls -la build_output/
 

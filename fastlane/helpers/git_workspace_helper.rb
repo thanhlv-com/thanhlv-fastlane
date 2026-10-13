@@ -195,8 +195,11 @@ end
 
 # Thực thi lệnh Node.js / NPM trong thư mục workspace với môi trường sạch
 def run_node_cmd(command, working_dir)
-  clean_cmd = "env -u GEM_HOME -u GEM_PATH -u BUNDLE_BIN_PATH -u BUNDLE_GEMFILE -u RUBYOPT #{command}"
-  full_cmd = "cd \"#{working_dir}\" && #{clean_cmd}"
+  full_cmd = if Gem.win_platform?
+               "cd /d \"#{working_dir}\" && #{command}"
+             else
+               "cd \"#{working_dir}\" && env -u GEM_HOME -u GEM_PATH -u BUNDLE_BIN_PATH -u BUNDLE_GEMFILE -u RUBYOPT #{command}"
+             end
 
   if defined?(Bundler)
     Bundler.with_unbundled_env do
@@ -209,13 +212,17 @@ end
 
 # Thực thi lệnh Flutter trong thư mục workspace với môi trường sạch
 def run_flutter_cmd(command, working_dir)
-  unless system("which flutter > /dev/null 2>&1")
+  check_cmd = Gem.win_platform? ? "where flutter >nul 2>&1" : "which flutter > /dev/null 2>&1"
+  unless system(check_cmd)
     UI.important("⚠️ Không tìm thấy lệnh 'flutter' trong PATH. Bỏ qua lệnh: #{command}")
     return false
   end
 
-  clean_cmd = "env -u GEM_HOME -u GEM_PATH -u BUNDLE_BIN_PATH -u BUNDLE_GEMFILE -u RUBYOPT #{command}"
-  full_cmd = "cd \"#{working_dir}\" && #{clean_cmd}"
+  full_cmd = if Gem.win_platform?
+               "cd /d \"#{working_dir}\" && #{command}"
+             else
+               "cd \"#{working_dir}\" && env -u GEM_HOME -u GEM_PATH -u BUNDLE_BIN_PATH -u BUNDLE_GEMFILE -u RUBYOPT #{command}"
+             end
 
   if defined?(Bundler)
     Bundler.with_unbundled_env do

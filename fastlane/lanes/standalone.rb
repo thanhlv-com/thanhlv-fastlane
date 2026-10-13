@@ -223,10 +223,17 @@ platform :standalone do
     end
   end
 
-  desc "Dispatcher tự động điều hướng build Standalone theo platform (platform: macos|windows|linux)"
+  desc "Dispatcher tự động điều hướng build Standalone theo platform (platform: all|macos|windows|linux)"
   lane :build do |options|
-    target_platform = (options[:platform] || options[:target_platform] || "macos").to_s.downcase
+    target_platform = (options[:platform] || options[:target_platform] || "all").to_s.downcase
     case target_platform
+    when "all"
+      UI.message("🌐 Bắt đầu build tất cả nền tảng Desktop Standalone (macOS, Windows, Linux)...")
+      results = {}
+      results[:mac] = mac_build(options)
+      results[:win] = win_build(options)
+      results[:linux] = linux_build(options)
+      next results
     when "macos", "mac", "darwin"
       mac_build(options)
     when "windows", "win"
@@ -234,7 +241,7 @@ platform :standalone do
     when "linux"
       linux_build(options)
     else
-      UI.user_error!("❌ Nền tảng '#{target_platform}' không được hỗ trợ trong standalone build. Chọn: macos, windows, linux")
+      UI.user_error!("❌ Nền tảng '#{target_platform}' không được hỗ trợ trong standalone build. Chọn: all, macos, windows, linux")
     end
   end
 end
