@@ -36,6 +36,11 @@ on:
         required: false
         default: false
         type: boolean
+      notarize:
+        description: "Tự động công chứng Apple Notarization và đóng dấu (Staple) cho macOS DMG"
+        required: false
+        default: true
+        type: boolean
 
 # ==============================================================================
 # KHAI BÁO TẬP TRUNG TẤT CẢ BIẾN MÔI TRƯỜNG & SECRETS TỪ GITHUB Ở ĐẦU FILE
@@ -47,7 +52,7 @@ env:
   GH_REPO_OWNER: ${{ github.repository_owner }}
   KEYSTORE_REPO_NAME: "apple-certificates-keystore"
 
-  # Apple Developer & App Store Connect Secrets (Dùng khi cần chứng chỉ ký DMG macOS)
+  # Apple Developer & App Store Connect Secrets (Dùng khi cần chứng chỉ ký DMG macOS & Notarization)
   CFG_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
   CFG_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
   CFG_ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
@@ -64,6 +69,7 @@ env:
   INPUT_VERSION: ${{ inputs.version }}
   INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
   INPUT_SKIP_CERTS: ${{ inputs.skip_certs }}
+  INPUT_NOTARIZE: ${{ inputs.notarize }}
 
 jobs:
   build-macos:
@@ -131,6 +137,11 @@ jobs:
           if [ "$INPUT_SKIP_CERTS" = "true" ]; then
             EXTRA_ARGS="$EXTRA_ARGS skip_certs:true"
           fi
+          if [ "$INPUT_NOTARIZE" = "false" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS notarize:false"
+          else
+            EXTRA_ARGS="$EXTRA_ARGS notarize:true"
+          fi
 
           echo "🚀 Đang thực thi: fastlane standalone mac_build app:$INPUT_APP $EXTRA_ARGS"
           bundle exec fastlane standalone mac_build app:$INPUT_APP $EXTRA_ARGS
@@ -140,7 +151,9 @@ jobs:
         if: always()
         run: |
           mkdir -p build_output
-          find .workspace_code -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \;
+          shopt -s globstar nullglob
+          cp -f .workspace_code/**/dist/*.dmg .workspace_code/**/dist/*.zip .workspace_code/**/dist/*.blockmap build_output/ 2>/dev/null || true
+          find .workspace_code -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \; 2>/dev/null || true
           echo "📦 Danh sách file trong build_output:"
           ls -la build_output/
 
