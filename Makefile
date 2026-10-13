@@ -116,14 +116,20 @@ help:
 	@echo "      Build iOS IPA trong thư mục .workspace_code (mặc định làm rối mã nguồn: --obfuscate)."
 	@echo "  $(GREEN)make ios-deploy APP=<app_key> [TARGET=testflight|appstore] [UPLOAD_METADATA=false] [OBFUSCATE=true]$(RESET)"
 	@echo "      Build & Deploy iOS lên TestFlight hoặc App Store."
-	@echo "  $(GREEN)make mac-build APP=<app_key> [TARGET=standalone|appstore] [OBFUSCATE=true]$(RESET)"
-	@echo "      Build macOS: TARGET=standalone (mặc định: ký DMG, không push Store) hoặc TARGET=appstore (PKG cho Store)."
+	@echo "  $(GREEN)make mac-build APP=<app_key> [FLAVOR=...] [OBFUSCATE=true]$(RESET)"
+	@echo "      Build macOS PKG trong thư mục .workspace_code (mặc định làm rối mã nguồn: --obfuscate)."
 	@echo "  $(GREEN)make mac-deploy APP=<app_key> [TARGET=testflight|appstore] [UPLOAD_METADATA=false] [OBFUSCATE=true]$(RESET)"
 	@echo "      Build & Deploy macOS lên TestFlight hoặc Mac App Store."
 	@echo "  $(GREEN)make aos-build APP=<app_key> [TYPE=appbundle|apk] [OBFUSCATE=true]$(RESET)"
 	@echo "      Build Android App Bundle (.aab) hoặc APK trong .workspace_code (mặc định: --obfuscate)."
 	@echo "  $(GREEN)make aos-deploy APP=<app_key> [TRACK=internal|alpha|beta|production] [OBFUSCATE=true]$(RESET)"
 	@echo "      Build Android AAB & Deploy lên Google Play Console."
+	@echo "  $(GREEN)make standalone-mac APP=<app_key> [VERSION=...]$(RESET)"
+	@echo "      Build macOS Standalone (.dmg / .zip) không qua App Store (Electron / Flutter)."
+	@echo "  $(GREEN)make standalone-win APP=<app_key>$(RESET)"
+	@echo "      Build Windows Standalone (.exe) không qua App Store (Electron / Flutter)."
+	@echo "  $(GREEN)make standalone-linux APP=<app_key>$(RESET)"
+	@echo "      Build Linux Standalone (.AppImage / .deb) không qua App Store."
 	@echo ""
 	@echo "$(BOLD)$(CYAN)====================================================================$(RESET)"
 	@echo ""
@@ -287,10 +293,10 @@ ios-deploy:
 # macOS
 mac-build:
 	@if [ -z "$(APP)" ]; then \
-		echo "$(RED)❌ Vui lòng chỉ định app: make mac-build APP=OpsFlow_Hub [TARGET=standalone|appstore] [FLAVOR=...] [OBFUSCATE=true]$(RESET)"; \
+		echo "$(RED)❌ Vui lòng chỉ định app: make mac-build APP=OpsFlow_Hub [FLAVOR=...] [OBFUSCATE=true]$(RESET)"; \
 		exit 1; \
 	fi
-	fastlane mac build app:$(APP) flavor:$${FLAVOR:-} target:$${TARGET:-standalone} export_method:$${EXPORT_METHOD:-} obfuscate:$${OBFUSCATE:-} uses_non_exempt_encryption:$${USES_NON_EXEMPT_ENCRYPTION:-}
+	fastlane mac build app:$(APP) flavor:$${FLAVOR:-} obfuscate:$${OBFUSCATE:-} uses_non_exempt_encryption:$${USES_NON_EXEMPT_ENCRYPTION:-}
 
 mac-deploy:
 	@if [ -z "$(APP)" ]; then \
@@ -328,6 +334,41 @@ linux-build:
 		exit 1; \
 	fi
 	fastlane linux build app:$(APP) obfuscate:$${OBFUSCATE:-}
+
+# ==============================================================================
+# STANDALONE DESKTOP BUILDS (DMG, EXE, AppImage / Deb - Không qua App Store)
+# ==============================================================================
+standalone-mac:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make standalone-mac APP=web-clone [VERSION=...]$(RESET)"; \
+		exit 1; \
+	fi
+	fastlane standalone mac_build app:$(APP) version:$${VERSION:-} build_number:$${BUILD_NUMBER:-} skip_certs:$${SKIP_CERTS:-true}
+
+standalone-win:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make standalone-win APP=web-clone$(RESET)"; \
+		exit 1; \
+	fi
+	fastlane standalone win_build app:$(APP) version:$${VERSION:-} build_number:$${BUILD_NUMBER:-}
+
+standalone-linux:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make standalone-linux APP=web-clone$(RESET)"; \
+		exit 1; \
+	fi
+	fastlane standalone linux_build app:$(APP) version:$${VERSION:-} build_number:$${BUILD_NUMBER:-}
+
+standalone-build:
+	@if [ -z "$(APP)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định app: make standalone-build APP=web-clone [PLATFORM=macos|windows|linux]$(RESET)"; \
+		exit 1; \
+	fi
+	fastlane standalone build app:$(APP) platform:$${PLATFORM:-macos} version:$${VERSION:-} build_number:$${BUILD_NUMBER:-} skip_certs:$${SKIP_CERTS:-true}
+
+mac-standalone: standalone-mac
+win-standalone: standalone-win
+linux-standalone: standalone-linux
 
 # ==============================================================================
 # 5. QUẢN LÝ & ĐỒNG BỘ 2 CHIỀU METADATA (PULL & PUSH)

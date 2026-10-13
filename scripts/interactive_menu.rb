@@ -264,7 +264,11 @@ class InteractiveMenu
         { label: "📦 Standalone (Build & Ký DMG - Phân phối ngoài, không push Store)", value: "standalone" },
         { label: "🏪 Mac App Store (Build & Ký PKG - Sẵn sàng cho App Store / TestFlight)", value: "appstore" }
       ])
-      cmd = "make mac-build APP=#{app_key} TARGET=#{target_choice} OBFUSCATE=#{obfuscate}"
+      if target_choice == "standalone"
+        cmd = "make standalone-mac APP=#{app_key}"
+      else
+        cmd = "make mac-build APP=#{app_key} OBFUSCATE=#{obfuscate}"
+      end
     when "aos"
       b_type = prompt_choice("Chọn Định Dạng Build", [
         { label: "App Bundle (.aab) - Chuẩn Google Play", value: "appbundle" },

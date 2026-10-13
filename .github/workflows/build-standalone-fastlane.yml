@@ -1,0 +1,336 @@
+name: Build Standalone Desktop Apps (DMG, EXE, AppImage)
+run-name: "Standalone: ${{ inputs.app }} (${{ inputs.platform }})${{ inputs.version != '' && format(' (v{0})', inputs.version) || '' }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "Chọn App Key trong apps.json (Electron / Desktop)"
+        required: true
+        default: "web-clone"
+        type: choice
+        options:
+          - "web-clone"
+      platform:
+        description: "Nền tảng build Standalone"
+        required: true
+        default: "macos"
+        type: choice
+        options:
+          - "macos"
+          - "windows"
+          - "linux"
+      version:
+        description: "Version (Tùy chọn, để trống sẽ lấy từ apps.json / package.json)"
+        required: false
+        default: ""
+        type: string
+      build_number:
+        description: "Build Number (Tùy chọn, để trống sẽ tự sinh Epoch timestamp)"
+        required: false
+        default: ""
+        type: string
+      skip_certs:
+        description: "Bỏ qua ký mã nguồn (Skip Code Signing)"
+        required: false
+        default: false
+        type: boolean
+
+# ==============================================================================
+# KHAI BÁO TẬP TRUNG TẤT CẢ BIẾN MÔI TRƯỜNG & SECRETS TỪ GITHUB Ở ĐẦU FILE
+# ==============================================================================
+env:
+  # GitHub App & Repository Context
+  GH_APP_ID: "3766151"
+  GH_APP_PRIVATE_KEY: ${{ secrets.THANHLV_PRIVATE_KEY }}
+  GH_REPO_OWNER: ${{ github.repository_owner }}
+  KEYSTORE_REPO_NAME: "apple-certificates-keystore"
+
+  # Apple Developer & App Store Connect Secrets (Dùng khi cần chứng chỉ ký DMG macOS)
+  CFG_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+  CFG_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+  CFG_ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+  CFG_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+  CFG_ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
+
+  # Fastlane Match Secrets
+  CFG_MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+  CFG_MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD || 'ci_secure_keychain_pass' }}
+
+  # Workflow Inputs
+  INPUT_APP: ${{ inputs.app }}
+  INPUT_PLATFORM: ${{ inputs.platform }}
+  INPUT_VERSION: ${{ inputs.version }}
+  INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
+  INPUT_SKIP_CERTS: ${{ inputs.skip_certs }}
+
+jobs:
+  build-macos:
+    name: Build macOS Standalone (${{ inputs.app }})
+    if: inputs.platform == 'macos'
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 1. Tạo GitHub App Token để truy cập private keystore và repo source code
+      - name: Generate GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.GH_APP_ID }}
+          private-key: ${{ env.GH_APP_PRIVATE_KEY }}
+          owner: ${{ env.GH_REPO_OWNER }}
+
+      # 2. Cấu hình Git để tự động dùng App Token cho tất cả repo thuộc GitHub
+      - name: Configure Git for Private Repositories
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "git@github.com:"
+
+      # 3. Thiết lập Node.js (dành cho Electron apps)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 4. Thiết lập Ruby & Fastlane qua Bundler (có cache)
+      - name: Setup Ruby & Bundler
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      # 5. Thực thi Standalone macOS Build
+      - name: Run Fastlane Standalone macOS
+        env:
+          ASC_KEY_ID: ${{ env.CFG_ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ env.CFG_ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ env.CFG_ASC_KEY_CONTENT }}
+          APPLE_TEAM_ID: ${{ env.CFG_APPLE_TEAM_ID }}
+          ITC_TEAM_ID: ${{ env.CFG_ITC_TEAM_ID }}
+          MATCH_PASSWORD: ${{ env.CFG_MATCH_PASSWORD }}
+          MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ env.GH_REPO_OWNER }}/${{ env.KEYSTORE_REPO_NAME }}.git"
+          MATCH_KEYCHAIN_PASSWORD: ${{ env.CFG_MATCH_KEYCHAIN_PASSWORD }}
+          CI: "true"
+        run: |
+          EXTRA_ARGS=""
+          if [ -n "$INPUT_VERSION" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS version:$INPUT_VERSION"
+          fi
+          if [ -n "$INPUT_BUILD_NUMBER" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS build_number:$INPUT_BUILD_NUMBER"
+          else
+            EPOCH_BUILD_NUMBER=$(date +%s)
+            echo "🕒 Tự động tạo Build Number (Epoch): $EPOCH_BUILD_NUMBER"
+            EXTRA_ARGS="$EXTRA_ARGS build_number:$EPOCH_BUILD_NUMBER"
+          fi
+          if [ "$INPUT_SKIP_CERTS" = "true" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS skip_certs:true"
+          fi
+
+          echo "🚀 Đang thực thi: fastlane standalone mac_build app:$INPUT_APP $EXTRA_ARGS"
+          bundle exec fastlane standalone mac_build app:$INPUT_APP $EXTRA_ARGS
+
+      # 6. Upload DMG & ZIP Artifacts
+      - name: Upload macOS Standalone Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone-macos-${{ inputs.app }}-artifacts
+          path: |
+            .workspace_code/*/dist/*.dmg
+            .workspace_code/*/dist/*.zip
+            .workspace_code/*/dist/*.blockmap
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # 7. Gửi thông báo Telegram
+      - name: Send Telegram Notification
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          MESSAGE_THREAD_ID: ${{ vars.MESSAGE_THREAD_ID }}
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then ICON="✅ SUCCESS"; elif [ "$STATUS" = "cancelled" ]; then ICON="⚠️ CANCELLED"; else ICON="❌ FAILED"; fi
+          MESSAGE="🖥️ [Standalone macOS Build]
+          • App: ${{ inputs.app }}
+          • Platform: macOS (.dmg)
+          • Run Number: #${{ github.run_number }}
+          • Status: ${ICON}
+          • Triggered by: ${{ github.actor }}
+          • URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d message_thread_id="${MESSAGE_THREAD_ID}" \
+            --data-urlencode text="${MESSAGE}"
+
+  build-windows:
+    name: Build Windows Standalone (${{ inputs.app }})
+    if: inputs.platform == 'windows'
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Generate GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.GH_APP_ID }}
+          private-key: ${{ env.GH_APP_PRIVATE_KEY }}
+          owner: ${{ env.GH_REPO_OWNER }}
+
+      - name: Configure Git for Private Repositories
+        shell: bash
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "git@github.com:"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Ruby & Bundler
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Run Fastlane Standalone Windows
+        shell: bash
+        env:
+          CI: "true"
+        run: |
+          EXTRA_ARGS=""
+          if [ -n "$INPUT_VERSION" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS version:$INPUT_VERSION"
+          fi
+          if [ -n "$INPUT_BUILD_NUMBER" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS build_number:$INPUT_BUILD_NUMBER"
+          fi
+
+          echo "🚀 Đang thực thi: fastlane standalone win_build app:$INPUT_APP $EXTRA_ARGS"
+          bundle exec fastlane standalone win_build app:$INPUT_APP $EXTRA_ARGS
+
+      - name: Upload Windows Standalone Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone-windows-${{ inputs.app }}-artifacts
+          path: |
+            .workspace_code/*/dist/*.exe
+            .workspace_code/*/dist/*.blockmap
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Send Telegram Notification
+        if: always()
+        shell: bash
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          MESSAGE_THREAD_ID: ${{ vars.MESSAGE_THREAD_ID }}
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then ICON="✅ SUCCESS"; elif [ "$STATUS" = "cancelled" ]; then ICON="⚠️ CANCELLED"; else ICON="❌ FAILED"; fi
+          MESSAGE="🖥️ [Standalone Windows Build]
+          • App: ${{ inputs.app }}
+          • Platform: Windows (.exe)
+          • Run Number: #${{ github.run_number }}
+          • Status: ${ICON}
+          • Triggered by: ${{ github.actor }}
+          • URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d message_thread_id="${MESSAGE_THREAD_ID}" \
+            --data-urlencode text="${MESSAGE}"
+
+  build-linux:
+    name: Build Linux Standalone (${{ inputs.app }})
+    if: inputs.platform == 'linux'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Generate GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.GH_APP_ID }}
+          private-key: ${{ env.GH_APP_PRIVATE_KEY }}
+          owner: ${{ env.GH_REPO_OWNER }}
+
+      - name: Configure Git for Private Repositories
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "git@github.com:"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Ruby & Bundler
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Run Fastlane Standalone Linux
+        env:
+          CI: "true"
+        run: |
+          EXTRA_ARGS=""
+          if [ -n "$INPUT_VERSION" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS version:$INPUT_VERSION"
+          fi
+          if [ -n "$INPUT_BUILD_NUMBER" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS build_number:$INPUT_BUILD_NUMBER"
+          fi
+
+          echo "🚀 Đang thực thi: fastlane standalone linux_build app:$INPUT_APP $EXTRA_ARGS"
+          bundle exec fastlane standalone linux_build app:$INPUT_APP $EXTRA_ARGS
+
+      - name: Upload Linux Standalone Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone-linux-${{ inputs.app }}-artifacts
+          path: |
+            .workspace_code/*/dist/*.AppImage
+            .workspace_code/*/dist/*.deb
+            .workspace_code/*/dist/*.snap
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Send Telegram Notification
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          MESSAGE_THREAD_ID: ${{ vars.MESSAGE_THREAD_ID }}
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then ICON="✅ SUCCESS"; elif [ "$STATUS" = "cancelled" ]; then ICON="⚠️ CANCELLED"; else ICON="❌ FAILED"; fi
+          MESSAGE="🖥️ [Standalone Linux Build]
+          • App: ${{ inputs.app }}
+          • Platform: Linux (.AppImage)
+          • Run Number: #${{ github.run_number }}
+          • Status: ${ICON}
+          • Triggered by: ${{ github.actor }}
+          • URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d message_thread_id="${MESSAGE_THREAD_ID}" \
+            --data-urlencode text="${MESSAGE}"

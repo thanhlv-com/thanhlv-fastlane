@@ -116,70 +116,7 @@ platform :mac do
     UI.message("🚀 Export Compliance (Missing Compliance): #{uses_non_exempt_enc ? 'Non-exempt' : 'None of the algorithms mentioned above (ITSAppUsesNonExemptEncryption = false)'}")
     UI.message("🚀 ========================================================")
 
-    # 1.1 Xử lý riêng cho dự án Electron Desktop
-    if is_electron_app?(app_info, workspace_dir)
-      UI.message("⚡ Phát hiện dự án Electron Desktop. Bắt đầu xử lý đóng gói macOS...")
-      pkg_mgr = (app_info["package_manager"] || "npm").to_s.downcase
-
-      node_modules = File.join(workspace_dir, "node_modules")
-      unless File.directory?(node_modules)
-        UI.message("📦 Cài đặt dependencies cho Electron: #{pkg_mgr} install...")
-        run_node_cmd("#{pkg_mgr} install", workspace_dir)
-      end
-
-      package_json_path = File.join(workspace_dir, "package.json")
-      pkg_json = JSON.parse(File.read(package_json_path)) rescue {}
-      scripts = pkg_json["scripts"] || {}
-
-      # Phân biệt 2 loại đóng gói macOS:
-      # Loại 1: Standalone (chỉ build & ký DMG/ZIP, không push lên Store) -> options[:target] == 'standalone' / 'dmg' (mặc định cho make mac-build)
-      # Loại 2: Mac App Store (build & ký PKG, có push lên Store) -> options[:target] == 'appstore' / 'testflight' / 'mas' / 'pkg'
-      is_mas_target = ["appstore", "testflight", "mas", "pkg"].include?(options[:target].to_s.downcase) ||
-                      (["app-store", "appstore"].include?(options[:export_method].to_s.downcase) && options[:target].to_s.downcase != "standalone")
-
-      if is_mas_target
-        UI.message("🏪 [Loại 2] Mục tiêu đóng gói: Mac App Store / TestFlight (.pkg - Sandbox enabled)")
-        build_cmd = if scripts["build:mas"]
-                      "#{pkg_mgr} run build:mas"
-                    else
-                      "npx electron-builder --mac mas"
-                    end
-      else
-        UI.message("📦 [Loại 1] Mục tiêu đóng gói: Standalone Distribution (.dmg - Ký Developer ID, không push Store)")
-        build_cmd = if scripts["build:mac"]
-                      "#{pkg_mgr} run build:mac"
-                    elsif scripts["build"]
-                      "#{pkg_mgr} run build && npx electron-builder --mac"
-                    else
-                      "npx electron-builder --mac"
-                    end
-      end
-
-      UI.message("🛠 Đang đóng gói Electron macOS: #{build_cmd}")
-      run_node_cmd(build_cmd, workspace_dir)
-
-      dist_dir = File.join(workspace_dir, "dist")
-      mas_dir = File.join(dist_dir, "mas")
-
-      if is_mas_target
-        pkg_files = Dir.glob(File.join(mas_dir, "*.pkg")) + Dir.glob(File.join(dist_dir, "*.pkg"))
-        artifact_path = pkg_files.first
-        UI.success("🎉 [Loại 2] Đóng gói Electron Mac App Store (.pkg) thành công!")
-        UI.success("📦 Thư mục output: #{mas_dir}")
-        UI.success("📦 File sản phẩm PKG: #{artifact_path}") if artifact_path
-      else
-        dmg_files = Dir.glob(File.join(dist_dir, "*.dmg"))
-        zip_files = Dir.glob(File.join(dist_dir, "*.zip"))
-        artifact_path = dmg_files.first || zip_files.first
-        UI.success("🎉 [Loại 1] Đóng gói Electron Standalone (.dmg) thành công (chỉ build & ký, không push Store)!")
-        UI.success("📦 Thư mục output: #{dist_dir}")
-        UI.success("📦 File sản phẩm DMG: #{artifact_path}") if artifact_path
-      end
-
-      next artifact_path || dist_dir
-    end
-
-    # 1.2 Cấu hình mặc định Export Compliance trong Info.plist (Missing Compliance -> None of the algorithms mentioned above)
+    # 1.1 Cấu hình mặc định Export Compliance trong Info.plist (Missing Compliance -> None of the algorithms mentioned above)
     configure_export_compliance!(workspace_dir, "macos", app_info, options)
 
     # 2. Tải và cài đặt Certificates/Profiles qua Match nếu không bỏ qua
@@ -334,8 +271,7 @@ platform :mac do
         app: app_key,
         version: version_name,
         build_number: build_number,
-        skip_certs: true,
-        target: target
+        skip_certs: true
       )
     )
 
