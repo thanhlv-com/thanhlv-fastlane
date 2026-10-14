@@ -123,21 +123,46 @@ platform :standalone do
 
   desc "Đồng bộ hoặc tạo mới chứng chỉ Developer ID Application qua Match (dùng để ký Standalone & Notarize)"
   lane :sync_developer_id do |options|
-    app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane standalone sync_developer_id app:<app_key>")
-    app_info = get_app_config(app_key)
-    bundle_id = resolve_bundle_id(app_info, "macos", options)
+    app_key = options[:app]
+    bundle_id = nil
+
+    if app_key && !app_key.to_s.strip.empty? && app_key.to_s.downcase != "all"
+      app_info = get_app_config(app_key)
+      bundle_id = resolve_bundle_id(app_info, "macos", options)
+    else
+      # Lấy bundle_id từ app macOS đầu tiên trong apps.json làm mỏ neo định danh cho match
+      apps_data = load_apps_config
+      target_app = apps_data.find do |_k, v|
+        (v["platforms"] || []).map { |p| normalize_platform_name(p) }.include?("macos")
+      end
+      if target_app
+        app_key = target_app[0]
+        bundle_id = resolve_bundle_id(target_app[1], "macos")
+      else
+        bundle_id = "com.thanhlv.webclone"
+      end
+    end
+
     is_readonly = options[:readonly] == true || options[:readonly] == "true"
+    is_force = options[:force] == true || options[:force] == "true"
     api_key = get_api_key
 
-    UI.message("🔑 Đang đồng bộ Developer ID Application Certificate cho: #{app_key} (#{bundle_id})...")
+    UI.message("🔑 ========================================================")
+    UI.message("🔑 Đồng bộ / Tạo chứng chỉ Developer ID Application qua Match")
+    UI.message("🔑 App tham chiếu: #{app_key} (#{bundle_id})")
+    UI.message("🔑 Readonly: #{is_readonly ? 'Có (Chỉ đọc, không tạo mới)' : 'Không (Tự tạo nếu chưa có hoặc hết hạn)'}")
+    UI.message("🔑 Force: #{is_force ? 'Bắt buộc tạo mới' : 'Không (giữ nguyên nếu cert còn hạn)'}")
+    UI.message("🔑 ========================================================")
+
     match(
       type: "developer_id",
       platform: "macos",
       app_identifier: bundle_id,
       api_key: api_key,
-      readonly: is_readonly
+      readonly: is_readonly,
+      force: is_force
     )
-    UI.success("🎉 Hoàn tất đồng bộ Developer ID Application Certificate!")
+    UI.success("🎉 Hoàn tất đồng bộ/cập nhật Developer ID Application Certificate trên Keystore!")
   end
 
   desc "Build ứng dụng Desktop Standalone cho macOS (.dmg / .zip)"
