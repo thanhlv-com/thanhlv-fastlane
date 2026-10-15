@@ -201,6 +201,17 @@ platform :standalone do
       # 3. Tạo file .p12 chuẩn Match (password rỗng, legacy flag để tương thích tối đa với macOS Keychain)
       sh("openssl pkcs12 -export #{legacy_flag} -inkey \"#{key_pem}\" -in \"#{cer_pem}\" -passout pass:\"\" -out \"#{match_p12}\"")
 
+      # 4. Xác định mã ID định danh (Certificate ID hoặc Serial Number)
+      cert_obj = OpenSSL::X509::Certificate.new(File.read(cer_pem))
+      serial_hex = cert_obj.serial.to_s(16).upcase
+      cert_id = options[:cert_id] || ENV["CERT_ID"]
+      cert_id = serial_hex if cert_id.nil? || cert_id.to_s.strip.empty?
+
+      final_cer = File.join(tmp_dir, "#{cert_id}.cer")
+      final_p12 = File.join(tmp_dir, "#{cert_id}.p12")
+      FileUtils.cp(cer_der, final_cer)
+      FileUtils.cp(match_p12, final_p12)
+
       api_key = get_api_key rescue nil
 
       match_params = {
@@ -211,13 +222,14 @@ platform :standalone do
         git_branch: "master",
         shallow_clone: true,
         skip_provisioning_profiles: true,
+        skip_certificate_matching: true,
         api_key: api_key
       }
 
       config = FastlaneCore::Configuration.create(Match::Options.available_options, match_params)
-      UI.message("🚀 Đang mã hóa và đẩy chứng chỉ vào apple-certificates-keystore...")
-      Match::Importer.new.import_cert(config, cert_path: cer_der, p12_path: match_p12, profile_path: "")
-      UI.success("🎉 Đã import và mã hóa thành công Developer ID Certificate vào Keystore!")
+      UI.message("🚀 Đang mã hóa và đẩy chứng chỉ vào apple-certificates-keystore (ID: #{cert_id})...")
+      Match::Importer.new.import_cert(config, cert_path: final_cer, p12_path: final_p12, profile_path: "")
+      UI.success("🎉 Đã import và mã hóa thành công Developer ID Certificate (#{cert_id}) vào Keystore!")
     rescue => e
       UI.user_error!("❌ Lỗi khi import chứng chỉ Developer ID: #{e.message}")
     ensure

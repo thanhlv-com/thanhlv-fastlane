@@ -8,6 +8,11 @@ on:
         description: "Chuỗi Base64 của file .p12 (chạy: base64 -i ~/Desktop/developer_id.p12 | pbcopy)"
         required: true
         type: string
+      cert_id:
+        description: "Apple Certificate ID (Tùy chọn, ví dụ: 9K3X84P2LQ - để trống sẽ tự lấy Serial Number)"
+        required: false
+        default: ""
+        type: string
 
 # ==============================================================================
 # KHAI BÁO TẬP TRUNG TẤT CẢ BIẾN MÔI TRƯỜNG & SECRETS TỪ GITHUB
@@ -32,6 +37,7 @@ env:
 
   # Inputs
   INPUT_P12_BASE64: ${{ inputs.p12_base64 }}
+  INPUT_CERT_ID: ${{ inputs.cert_id }}
 
 jobs:
   import-developer-id:
@@ -81,8 +87,13 @@ jobs:
           echo "📦 Đang decode file .p12..."
           echo "$INPUT_P12_BASE64" | base64 --decode > /tmp/developer_id_input.p12
 
-          echo "🚀 Đang thực thi Import Developer ID vào Keystore (dùng MATCH_PASSWORD)..."
-          bundle exec fastlane standalone import_developer_id p12_path:/tmp/developer_id_input.p12 p12_password:"$CFG_MATCH_PASSWORD"
+          ARGS="p12_path:/tmp/developer_id_input.p12 p12_password:$CFG_MATCH_PASSWORD"
+          if [ -n "$INPUT_CERT_ID" ]; then
+            ARGS="$ARGS cert_id:$INPUT_CERT_ID"
+          fi
+
+          echo "🚀 Đang thực thi Import Developer ID vào Keystore..."
+          bundle exec fastlane standalone import_developer_id $ARGS
 
       # 5. Gửi thông báo Telegram
       - name: Send Telegram Notification
