@@ -114,6 +114,8 @@ def notarize_macos_artifact(artifact_path, options = {})
       FileUtils.rm_rf(File.dirname(key_file)) rescue nil
     end
   end
+end
+
 # Tự động tối ưu cấu hình electron-builder.yml để đạt tiêu chuẩn Apple Notarization
 def configure_electron_macos_signing!(workspace_dir)
   builder_yml = File.join(workspace_dir, "electron-builder.yml")
