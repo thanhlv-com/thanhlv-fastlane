@@ -146,7 +146,9 @@ end
 
 # Tự động tải và nạp các Apple Intermediate CA & Root CA Certificates vào Keychain
 # Giải quyết triệt để lỗi CSSMERR_TP_NOT_TRUSTED trên môi trường CI (GitHub Actions)
-def install_apple_intermediate_certificates!(keychain_path)
+def install_apple_intermediate_certificates!
+  return unless /darwin/ =~ RUBY_PLATFORM
+
   cert_urls = [
     # Developer ID CAs (Tối quan trọng cho Developer ID Application / Installer)
     "https://www.apple.com/certificateauthority/DeveloperIDCA.cer",
@@ -163,14 +165,12 @@ def install_apple_intermediate_certificates!(keychain_path)
     "https://www.apple.com/certificateauthority/AppleRootCA-G3.cer"
   ]
 
-  # Danh sách tất cả keychains cần nạp certs (cả custom keychain và login.keychain)
+  # Mặc định thêm vào Keychain của hệ thống (login.keychain hoặc default)
   login_kc_candidates = [
     File.expand_path("~/Library/Keychains/login.keychain-db"),
     File.expand_path("~/Library/Keychains/login.keychain")
   ]
   login_kc = login_kc_candidates.find { |p| File.exist?(p) }
-
-  target_keychains = [keychain_path, login_kc].compact.select { |p| File.exist?(p) }.uniq
 
   UI.message("🌐 Đang kiểm tra & nạp Apple Intermediate & Root CA Certificates để khắc phục CSSMERR_TP_NOT_TRUSTED...")
   cert_urls.each do |url|
@@ -178,28 +178,14 @@ def install_apple_intermediate_certificates!(keychain_path)
     tmp_cert = File.join(Dir.tmpdir, filename)
     sh("curl -fsSL --retry 3 --retry-all-errors \"#{url}\" -o \"#{tmp_cert}\"") rescue nil
     if File.exist?(tmp_cert)
-      target_keychains.each do |kc|
-        sh("security add-certificates -k \"#{kc}\" \"#{tmp_cert}\"") rescue nil
+      if login_kc
+        sh("security add-certificates -k \"#{login_kc}\" \"#{tmp_cert}\"") rescue nil
+      else
+        sh("security add-certificates \"#{tmp_cert}\"") rescue nil
       end
     end
   end
-
-  # Đặt keychain mục tiêu làm default keychain của hệ thống
-  if keychain_path && File.exist?(keychain_path)
-    sh("security default-keychain -s \"#{keychain_path}\"") rescue nil
-  end
-
-  # Đảm bảo Keychain mục tiêu, login.keychain và các System Keychains nằm trong danh sách tìm kiếm (Search List)
-  current_search_list = `security list-keychains -d user 2>/dev/null`.scan(/"([^"]+)"/).flatten
-  needed_keychains = ([keychain_path] + current_search_list + target_keychains + [
-    File.expand_path("~/Library/Keychains/login.keychain-db"),
-    File.expand_path("~/Library/Keychains/login.keychain"),
-    "/Library/Keychains/System.keychain",
-    "/System/Library/Keychains/SystemRootCertificates.keychain"
-  ]).compact.select { |p| File.exist?(p) }.uniq
-
-  sh("security list-keychains -d user -s #{needed_keychains.map(&:shellescape).join(' ')}") rescue nil
-  UI.success("✅ Đã nạp toàn bộ Apple Intermediate CAs và cập nhật Keychain Search List thành công!")
+  UI.success("✅ Đã nạp toàn bộ Apple Intermediate CAs thành công!")
 end
 
 platform :standalone do
@@ -366,126 +352,28 @@ platform :standalone do
     UI.message("🚀 Build Number: #{build_number}")
     UI.message("🚀 ========================================================")
 
-    # Nếu có cấu hình Match certs và không bỏ qua, chuẩn bị keychain certificates cho macOS
+    # 2. Tải và cài đặt Certificates qua Match nếu không bỏ qua (chuẩn hóa tương tự macos.rb)
     skip_certs = options[:skip_certs] == true || options[:skip_certs] == "true"
-    if !skip_certs && is_ci && ENV["MATCH_PASSWORD"]
-      match_temp_dir = Dir.mktmpdir("match_certs_")
+    if !skip_certs
       begin
         api_key = get_api_key rescue nil
         is_readonly = options[:readonly] != false && options[:readonly] != "false"
 
-        # 1.1 Ưu tiên tải chứng chỉ Developer ID Application trước
-        begin
-          UI.message("🔑 [1/2] Đang đồng bộ chứng chỉ Developer ID Application qua Match...")
-          match(
-            type: "developer_id",
-            platform: "macos",
-            app_identifier: bundle_id,
-            api_key: api_key,
-            readonly: is_readonly,
-            skip_provisioning_profiles: true,
-            output_path: match_temp_dir
-          )
-          ENV["CSC_NAME"] = "Developer ID Application"
-        rescue => e_dev
-          UI.important("ℹ️ Không thể đồng bộ Developer ID cert (#{e_dev.message}). Fallback sang Distribution cert...")
-          match(
-            type: "appstore",
-            platform: "macos",
-            generate_apple_certs: true,
-            app_identifier: bundle_id,
-            api_key: api_key,
-            readonly: true,
-            output_path: match_temp_dir
-          ) rescue nil
-        end
+        # Tải Apple Intermediate & Root CAs để đảm bảo chuỗi chứng chỉ đầy đủ (tránh CSSMERR_TP_NOT_TRUSTED trên CI)
+        install_apple_intermediate_certificates!
 
-        # Xác định chính xác Keychain mục tiêu
-        keychain_candidates = [
-          (find_local_keychains.find { |p| p.include?("fastlane_tmp_keychain") } if defined?(find_local_keychains)),
-          ENV["MATCH_KEYCHAIN_PATH"],
-          File.expand_path("~/Library/Keychains/fastlane_tmp_keychain-db"),
-          File.expand_path("~/Library/Keychains/fastlane_tmp_keychain"),
-          File.expand_path("~/Library/Keychains/login.keychain-db"),
-          File.expand_path("~/Library/Keychains/login.keychain")
-        ].compact
-        keychain_path = keychain_candidates.find { |p| File.exist?(p) }
-
-        # Nạp Apple Intermediate & Root CAs để giải quyết triệt để lỗi CSSMERR_TP_NOT_TRUSTED trên CI
-        install_apple_intermediate_certificates!(keychain_path) if keychain_path
-
-        # Kiểm tra xem Developer ID Application đã có mặt đầy đủ (cả cert + private key) trong Keychain chưa
-        identities_out = sh("security find-identity -v -p codesigning #{keychain_path ? "\"#{keychain_path}\"" : ""}") rescue ""
-        has_valid_identity = identities_out.include?("Developer ID Application") || identities_out.include?("Apple Distribution")
-
-        # Tự động khắc phục nếu file .p12 tải về từ Match ở dạng văn bản PEM khiến macOS security import bị lỗi Unknown format
-        if !has_valid_identity && match_temp_dir && File.directory?(match_temp_dir)
-          cer_file = Dir.glob(File.join(match_temp_dir, "*.cer")).first
-          p12_file = Dir.glob(File.join(match_temp_dir, "*.p12")).first
-          if cer_file && p12_file && File.exist?(p12_file)
-            content = File.binread(p12_file) rescue ""
-            if content.include?("BEGIN")
-              UI.message("🔧 Phát hiện Private Key trong Match lưu ở định dạng text PEM thay vì PKCS#12.")
-              UI.message("🔧 Đang tự động chuyển đổi sang PKCS#12 chuẩn Apple Security và import vào Keychain...")
-              key_rsa = File.join(match_temp_dir, "key_rsa.pem")
-              cer_pem = File.join(match_temp_dir, "cert.pem")
-              fixed_p12 = File.join(match_temp_dir, "fixed_identity.p12")
-
-              sh("openssl x509 -inform der -in \"#{cer_file}\" -out \"#{cer_pem}\"") rescue FileUtils.cp(cer_file, cer_pem)
-              sh("openssl rsa -in \"#{p12_file}\" -out \"#{key_rsa}\"") rescue FileUtils.cp(p12_file, key_rsa)
-              legacy_flag = `openssl pkcs12 -help 2>&1`.include?("-legacy") ? "-legacy" : ""
-              target_kc = keychain_path || File.expand_path("~/Library/Keychains/fastlane_tmp_keychain-db")
-              kc_pass = ENV["MATCH_KEYCHAIN_PASSWORD"] || ""
-              temp_p12_pass = "codesign_identity_pass_123"
-
-              # Cách 1: PBE-SHA1-3DES + macalg sha1 + password cụ thể (tránh lỗi MAC verification trên OpenSSL 3 với empty password)
-              sh("openssl pkcs12 -export #{legacy_flag} -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 -inkey \"#{key_rsa}\" -in \"#{cer_pem}\" -out \"#{fixed_p12}\" -passout pass:#{temp_p12_pass}") rescue nil
-              sh("security import \"#{fixed_p12}\" -k \"#{target_kc}\" -P \"#{temp_p12_pass}\" -T /usr/bin/codesign -T /usr/bin/security") rescue nil
-
-              # Cách 2 (Dự phòng): -nomac + password cụ thể
-              identities_test = sh("security find-identity -v -p codesigning \"#{target_kc}\"") rescue ""
-              unless identities_test.include?("Developer ID Application")
-                sh("openssl pkcs12 -export #{legacy_flag} -nomac -inkey \"#{key_rsa}\" -in \"#{cer_pem}\" -out \"#{fixed_p12}\" -passout pass:#{temp_p12_pass}") rescue nil
-                sh("security import \"#{fixed_p12}\" -k \"#{target_kc}\" -P \"#{temp_p12_pass}\" -T /usr/bin/codesign -T /usr/bin/security") rescue nil
-              end
-
-              # Phân quyền partition list cho codesign
-              sh("security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k \"#{kc_pass}\" \"#{target_kc}\"") rescue nil
-
-              # Đồng bộ luôn sang login.keychain nếu có để tránh trường hợp electron-builder mặc định tìm trong login.keychain
-              login_kc_candidates = [
-                File.expand_path("~/Library/Keychains/login.keychain-db"),
-                File.expand_path("~/Library/Keychains/login.keychain")
-              ]
-              login_kc = login_kc_candidates.find { |p| File.exist?(p) && p != target_kc }
-              if login_kc
-                sh("security unlock-keychain -p \"\" \"#{login_kc}\"") rescue nil
-                sh("security import \"#{fixed_p12}\" -k \"#{login_kc}\" -P \"#{temp_p12_pass}\" -T /usr/bin/codesign -T /usr/bin/security") rescue nil
-                sh("security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k \"\" \"#{login_kc}\"") rescue nil
-                UI.message("📦 Đã đồng bộ chứng chỉ vào cả #{File.basename(login_kc)}")
-              end
-
-              UI.success("🎉 Đã phục hồi và nạp Code Signing Identity thành công vào #{File.basename(target_kc)}!")
-            end
-          end
-        end
-
-        # Thiết lập cấu hình Keychain cho electron-builder
-        if keychain_path && File.exist?(keychain_path)
-          ENV["CSC_KEYCHAIN"] = keychain_path
-          UI.message("🔐 Cấu hình electron-builder CSC_KEYCHAIN: #{keychain_path}")
-          UI.message("🔐 Cấu hình electron-builder CSC_NAME: #{ENV['CSC_NAME']}")
-          identities_check = sh("security find-identity -v -p codesigning \"#{keychain_path}\"") rescue ""
-          UI.message("📋 Danh sách Code Signing Identities hợp lệ trong Keychain:\n#{identities_check.strip}")
-          if identities_check.include?("0 valid identities found")
-            all_ids = sh("security find-identity -p codesigning \"#{keychain_path}\"") rescue ""
-            UI.important("⚠️ Cảnh báo: Tất cả identities hiện diện trong Keychain:\n#{all_ids.strip}")
-          end
-        end
+        # Đồng bộ Developer ID Application Certificate qua Match
+        UI.message("🔑 Đang đồng bộ chứng chỉ Developer ID Application qua Match...")
+        match(
+          type: "developer_id",
+          platform: "macos",
+          app_identifier: bundle_id,
+          api_key: api_key,
+          readonly: is_readonly,
+          skip_provisioning_profiles: true
+        )
       rescue => e
-        UI.important("⚠️ Không thể tải Match certs (#{e.message}). Tiếp tục với chứng chỉ local hoặc ad-hoc.")
-      ensure
-        FileUtils.rm_rf(match_temp_dir) if match_temp_dir && File.directory?(match_temp_dir)
+        UI.important("⚠️ Không thể đồng bộ qua Match (#{e.message}). Sẽ tiếp tục nếu chứng chỉ đã có sẵn trên máy.")
       end
     end
 
