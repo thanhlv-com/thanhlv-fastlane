@@ -210,12 +210,13 @@ platform :standalone do
         storage_mode: "git",
         git_branch: "master",
         shallow_clone: true,
+        skip_provisioning_profiles: true,
         api_key: api_key
       }
 
       config = FastlaneCore::Configuration.create(Match::Options.available_options, match_params)
       UI.message("🚀 Đang mã hóa và đẩy chứng chỉ vào apple-certificates-keystore...")
-      Match::Importer.new.import_cert(config, cert_path: cer_der, p12_path: match_p12)
+      Match::Importer.new.import_cert(config, cert_path: cer_der, p12_path: match_p12, profile_path: "")
       UI.success("🎉 Đã import và mã hóa thành công Developer ID Certificate vào Keystore!")
     rescue => e
       UI.user_error!("❌ Lỗi khi import chứng chỉ Developer ID: #{e.message}")
