@@ -235,8 +235,12 @@ platform :standalone do
       final_cer = File.join(tmp_dir, "#{cert_id}.cer")
       final_p12 = File.join(tmp_dir, "#{cert_id}.p12")
       FileUtils.cp(cer_der, final_cer)
-      # Fastlane Match yêu cầu file .p12 chứa Private Key dạng PEM (không đặt password để security import trên macOS không bị lỗi MAC verification)
-      FileUtils.cp(key_pem, final_p12)
+
+      # Đóng gói Private Key & Certificate vào file .p12 chuẩn PKCS#12 không đặt password (-passout pass:)
+      # tương thích hoàn toàn với lệnh macOS 'security import' của Fastlane Match
+      key_rsa = File.join(tmp_dir, "key_rsa.pem")
+      sh("openssl rsa -in \"#{key_pem}\" -out \"#{key_rsa}\"") rescue FileUtils.cp(key_pem, key_rsa)
+      sh("openssl pkcs12 -export #{legacy_flag} -inkey \"#{key_rsa}\" -in \"#{cer_pem}\" -out \"#{final_p12}\" -passout pass:")
 
       api_key = get_api_key rescue nil
 
@@ -285,6 +289,7 @@ platform :standalone do
     # Nếu có cấu hình Match certs và không bỏ qua, chuẩn bị keychain certificates cho macOS
     skip_certs = options[:skip_certs] == true || options[:skip_certs] == "true"
     if !skip_certs && is_ci && ENV["MATCH_PASSWORD"]
+      match_temp_dir = Dir.mktmpdir("match_certs_")
       begin
         api_key = get_api_key rescue nil
         is_readonly = options[:readonly] != false && options[:readonly] != "false"
@@ -298,7 +303,8 @@ platform :standalone do
             app_identifier: bundle_id,
             api_key: api_key,
             readonly: is_readonly,
-            skip_provisioning_profiles: true
+            skip_provisioning_profiles: true,
+            output_path: match_temp_dir
           )
           ENV["CSC_NAME"] = "Developer ID Application"
         rescue => e_dev
@@ -309,11 +315,65 @@ platform :standalone do
             generate_apple_certs: true,
             app_identifier: bundle_id,
             api_key: api_key,
-            readonly: true
+            readonly: true,
+            output_path: match_temp_dir
           ) rescue nil
+        end
+
+        # Xác định chính xác Keychain mục tiêu
+        keychain_candidates = [
+          (find_local_keychains.find { |p| p.include?("fastlane_tmp_keychain") } if defined?(find_local_keychains)),
+          ENV["MATCH_KEYCHAIN_PATH"],
+          File.expand_path("~/Library/Keychains/fastlane_tmp_keychain-db"),
+          File.expand_path("~/Library/Keychains/fastlane_tmp_keychain"),
+          File.expand_path("~/Library/Keychains/login.keychain-db"),
+          File.expand_path("~/Library/Keychains/login.keychain")
+        ].compact
+        keychain_path = keychain_candidates.find { |p| File.exist?(p) }
+
+        # Kiểm tra xem Developer ID Application đã có mặt đầy đủ (cả cert + private key) trong Keychain chưa
+        identities_out = sh("security find-identity -v -p codesigning #{keychain_path ? "\"#{keychain_path}\"" : ""}") rescue ""
+        has_valid_identity = identities_out.include?("Developer ID Application") || identities_out.include?("Apple Distribution")
+
+        # Tự động khắc phục nếu file .p12 tải về từ Match ở dạng văn bản PEM khiến macOS security import bị lỗi Unknown format
+        if !has_valid_identity && match_temp_dir && File.directory?(match_temp_dir)
+          cer_file = Dir.glob(File.join(match_temp_dir, "*.cer")).first
+          p12_file = Dir.glob(File.join(match_temp_dir, "*.p12")).first
+          if cer_file && p12_file && File.exist?(p12_file)
+            content = File.binread(p12_file) rescue ""
+            if content.include?("BEGIN")
+              UI.message("🔧 Phát hiện Private Key trong Match lưu ở định dạng text PEM thay vì PKCS#12.")
+              UI.message("🔧 Đang tự động chuyển đổi sang PKCS#12 chuẩn Apple Security và import vào Keychain...")
+              key_rsa = File.join(match_temp_dir, "key_rsa.pem")
+              cer_pem = File.join(match_temp_dir, "cert.pem")
+              fixed_p12 = File.join(match_temp_dir, "fixed_identity.p12")
+
+              sh("openssl x509 -inform der -in \"#{cer_file}\" -out \"#{cer_pem}\"") rescue FileUtils.cp(cer_file, cer_pem)
+              sh("openssl rsa -in \"#{p12_file}\" -out \"#{key_rsa}\"") rescue FileUtils.cp(p12_file, key_rsa)
+              legacy_flag = `openssl pkcs12 -help 2>&1`.include?("-legacy") ? "-legacy" : ""
+              sh("openssl pkcs12 -export #{legacy_flag} -inkey \"#{key_rsa}\" -in \"#{cer_pem}\" -out \"#{fixed_p12}\" -passout pass:")
+
+              target_kc = keychain_path || File.expand_path("~/Library/Keychains/fastlane_tmp_keychain-db")
+              kc_pass = ENV["MATCH_KEYCHAIN_PASSWORD"] || ""
+              sh("security import \"#{fixed_p12}\" -k \"#{target_kc}\" -P \"\" -T /usr/bin/codesign -T /usr/bin/security") rescue nil
+              sh("security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k \"#{kc_pass}\" \"#{target_kc}\"") rescue nil
+              UI.success("🎉 Đã phục hồi và nạp Code Signing Identity thành công vào #{File.basename(target_kc)}!")
+            end
+          end
+        end
+
+        # Thiết lập cấu hình Keychain cho electron-builder
+        if keychain_path && File.exist?(keychain_path)
+          ENV["CSC_KEYCHAIN"] = keychain_path
+          UI.message("🔐 Cấu hình electron-builder CSC_KEYCHAIN: #{keychain_path}")
+          UI.message("🔐 Cấu hình electron-builder CSC_NAME: #{ENV['CSC_NAME']}")
+          identities_check = sh("security find-identity -v -p codesigning \"#{keychain_path}\"") rescue ""
+          UI.message("📋 Danh sách Code Signing Identities trong Keychain:\n#{identities_check.strip}")
         end
       rescue => e
         UI.important("⚠️ Không thể tải Match certs (#{e.message}). Tiếp tục với chứng chỉ local hoặc ad-hoc.")
+      ensure
+        FileUtils.rm_rf(match_temp_dir) if match_temp_dir && File.directory?(match_temp_dir)
       end
     end
 
