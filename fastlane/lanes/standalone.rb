@@ -184,17 +184,22 @@ platform :standalone do
       key_pem = File.join(tmp_dir, "key.pem")
       match_p12 = File.join(tmp_dir, "match.p12")
 
-      UI.message("🔑 Đang xử lý file .p12 và trích xuất Certificate...")
+      # Kiểm tra cờ -legacy cho OpenSSL 3+ (cần thiết để giải mã thuật toán RC2-40-CBC xuất từ macOS Keychain)
+      legacy_flag = `openssl pkcs12 -help 2>&1`.include?("-legacy") ? "-legacy" : ""
+
+      ENV["DEV_ID_IMPORT_PASS"] = p12_password
+
+      UI.message("🔑 Đang xử lý file .p12 và trích xuất Certificate (OpenSSL legacy: #{!legacy_flag.empty?})...")
       
       # 1. Trích xuất Certificate (PEM & DER)
-      sh("openssl pkcs12 -in \"#{p12_path}\" -clcerts -nokeys -passin pass:\"#{p12_password}\" -out \"#{cer_pem}\"")
+      sh("openssl pkcs12 #{legacy_flag} -in \"#{p12_path}\" -clcerts -nokeys -passin env:DEV_ID_IMPORT_PASS -out \"#{cer_pem}\"")
       sh("openssl x509 -in \"#{cer_pem}\" -outform der -out \"#{cer_der}\"")
 
       # 2. Trích xuất Private Key
-      sh("openssl pkcs12 -in \"#{p12_path}\" -nocerts -nodes -passin pass:\"#{p12_password}\" -out \"#{key_pem}\"")
+      sh("openssl pkcs12 #{legacy_flag} -in \"#{p12_path}\" -nocerts -nodes -passin env:DEV_ID_IMPORT_PASS -out \"#{key_pem}\"")
 
-      # 3. Tạo file .p12 chuẩn Match (password rỗng, vì repo Git đã được mã hóa toàn bộ bằng MATCH_PASSWORD)
-      sh("openssl pkcs12 -export -inkey \"#{key_pem}\" -in \"#{cer_pem}\" -passout pass:\"\" -out \"#{match_p12}\"")
+      # 3. Tạo file .p12 chuẩn Match (password rỗng, legacy flag để tương thích tối đa với macOS Keychain)
+      sh("openssl pkcs12 -export #{legacy_flag} -inkey \"#{key_pem}\" -in \"#{cer_pem}\" -passout pass:\"\" -out \"#{match_p12}\"")
 
       api_key = get_api_key rescue nil
 
@@ -215,6 +220,7 @@ platform :standalone do
     rescue => e
       UI.user_error!("❌ Lỗi khi import chứng chỉ Developer ID: #{e.message}")
     ensure
+      ENV.delete("DEV_ID_IMPORT_PASS")
       FileUtils.rm_rf(tmp_dir) if tmp_dir && File.exist?(tmp_dir)
     end
   end
