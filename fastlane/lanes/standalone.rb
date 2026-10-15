@@ -147,8 +147,6 @@ end
 # Tự động tải và nạp các Apple Intermediate CA & Root CA Certificates vào Keychain
 # Giải quyết triệt để lỗi CSSMERR_TP_NOT_TRUSTED trên môi trường CI (GitHub Actions)
 def install_apple_intermediate_certificates!(keychain_path)
-  return unless keychain_path && File.exist?(keychain_path)
-
   cert_urls = [
     # Developer ID CAs (Tối quan trọng cho Developer ID Application / Installer)
     "https://www.apple.com/certificateauthority/DeveloperIDCA.cer",
@@ -165,19 +163,35 @@ def install_apple_intermediate_certificates!(keychain_path)
     "https://www.apple.com/certificateauthority/AppleRootCA-G3.cer"
   ]
 
+  # Danh sách tất cả keychains cần nạp certs (cả custom keychain và login.keychain)
+  login_kc_candidates = [
+    File.expand_path("~/Library/Keychains/login.keychain-db"),
+    File.expand_path("~/Library/Keychains/login.keychain")
+  ]
+  login_kc = login_kc_candidates.find { |p| File.exist?(p) }
+
+  target_keychains = [keychain_path, login_kc].compact.select { |p| File.exist?(p) }.uniq
+
   UI.message("🌐 Đang kiểm tra & nạp Apple Intermediate & Root CA Certificates để khắc phục CSSMERR_TP_NOT_TRUSTED...")
   cert_urls.each do |url|
     filename = File.basename(url)
     tmp_cert = File.join(Dir.tmpdir, filename)
     sh("curl -fsSL --retry 3 --retry-all-errors \"#{url}\" -o \"#{tmp_cert}\"") rescue nil
     if File.exist?(tmp_cert)
-      sh("security add-certificates -k \"#{keychain_path}\" \"#{tmp_cert}\"") rescue nil
+      target_keychains.each do |kc|
+        sh("security add-certificates -k \"#{kc}\" \"#{tmp_cert}\"") rescue nil
+      end
     end
   end
 
-  # Đảm bảo Keychain mục tiêu và các System Keychains nằm trong danh sách tìm kiếm (Search List)
+  # Đặt keychain mục tiêu làm default keychain của hệ thống
+  if keychain_path && File.exist?(keychain_path)
+    sh("security default-keychain -s \"#{keychain_path}\"") rescue nil
+  end
+
+  # Đảm bảo Keychain mục tiêu, login.keychain và các System Keychains nằm trong danh sách tìm kiếm (Search List)
   current_search_list = `security list-keychains -d user 2>/dev/null`.scan(/"([^"]+)"/).flatten
-  needed_keychains = ([keychain_path] + current_search_list + [
+  needed_keychains = ([keychain_path] + current_search_list + target_keychains + [
     File.expand_path("~/Library/Keychains/login.keychain-db"),
     File.expand_path("~/Library/Keychains/login.keychain"),
     "/Library/Keychains/System.keychain",
@@ -415,6 +429,20 @@ platform :standalone do
 
               # Phân quyền partition list cho codesign
               sh("security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k \"#{kc_pass}\" \"#{target_kc}\"") rescue nil
+
+              # Đồng bộ luôn sang login.keychain nếu có để tránh trường hợp electron-builder mặc định tìm trong login.keychain
+              login_kc_candidates = [
+                File.expand_path("~/Library/Keychains/login.keychain-db"),
+                File.expand_path("~/Library/Keychains/login.keychain")
+              ]
+              login_kc = login_kc_candidates.find { |p| File.exist?(p) && p != target_kc }
+              if login_kc
+                sh("security unlock-keychain -p \"\" \"#{login_kc}\"") rescue nil
+                sh("security import \"#{fixed_p12}\" -k \"#{login_kc}\" -P \"#{temp_p12_pass}\" -T /usr/bin/codesign -T /usr/bin/security") rescue nil
+                sh("security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k \"\" \"#{login_kc}\"") rescue nil
+                UI.message("📦 Đã đồng bộ chứng chỉ vào cả #{File.basename(login_kc)}")
+              end
+
               UI.success("🎉 Đã phục hồi và nạp Code Signing Identity thành công vào #{File.basename(target_kc)}!")
             end
           end
