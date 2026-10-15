@@ -176,16 +176,79 @@ def install_apple_intermediate_certificates!
   cert_urls.each do |url|
     filename = File.basename(url)
     tmp_cert = File.join(Dir.tmpdir, filename)
-    sh("curl -fsSL --retry 3 --retry-all-errors \"#{url}\" -o \"#{tmp_cert}\"") rescue nil
-    if File.exist?(tmp_cert)
-      if login_kc
-        sh("security add-certificates -k \"#{login_kc}\" \"#{tmp_cert}\"") rescue nil
+    download_res = system("curl -fsSL --retry 3 --retry-all-errors \"#{url}\" -o \"#{tmp_cert}\"")
+    if download_res && File.exist?(tmp_cert)
+      target_kc = login_kc || `security default-keychain 2>/dev/null`.strip.delete('"')
+      target_kc = nil if target_kc.to_s.empty?
+
+      add_cmd = target_kc ? "security add-certificates -k \"#{target_kc}\" \"#{tmp_cert}\"" : "security add-certificates \"#{tmp_cert}\""
+      add_out = `#{add_cmd} 2>&1`
+      if $?.success?
+        UI.message("   ✅ Đã nạp #{filename} vào #{target_kc ? File.basename(target_kc) : 'default keychain'}")
       else
-        sh("security add-certificates \"#{tmp_cert}\"") rescue nil
+        UI.important("   ⚠️ Không thể nạp #{filename}: #{add_out.strip}")
       end
+    else
+      UI.important("   ⚠️ Không thể tải #{filename} từ #{url}")
     end
   end
-  UI.success("✅ Đã nạp toàn bộ Apple Intermediate CAs thành công!")
+  UI.success("✅ Đã hoàn tất quy trình nạp Apple Intermediate CAs!")
+end
+
+# In chi tiết trạng thái Keychain và Code Signing Identities phục vụ debug/kiểm tra lỗi
+def log_keychain_and_signing_status(stage_name = "Debug")
+  return unless /darwin/ =~ RUBY_PLATFORM
+
+  UI.message("🔍 ========================================================")
+  UI.message("🔍 [LOG KIỂM TRA] #{stage_name}")
+  UI.message("🔍 ========================================================")
+
+  # 1. Biến môi trường quan trọng
+  UI.message("🌐 [1] Biến môi trường liên quan:")
+  UI.message("   - CI: #{ENV['CI'].inspect}")
+  UI.message("   - MATCH_KEYCHAIN_NAME: #{ENV['MATCH_KEYCHAIN_NAME'].inspect}")
+  UI.message("   - MATCH_KEYCHAIN_PASSWORD: #{ENV['MATCH_KEYCHAIN_PASSWORD'] ? '***[SET]' : 'nil'}")
+  UI.message("   - CSC_KEYCHAIN: #{ENV['CSC_KEYCHAIN'].inspect}")
+  UI.message("   - CSC_NAME: #{ENV['CSC_NAME'].inspect}")
+  UI.message("   - CSC_LINK: #{ENV['CSC_LINK'] ? '***[SET]' : 'nil'}")
+
+  # 2. Cấu hình Keychain hệ thống
+  default_kc = `security default-keychain 2>&1`.strip rescue "N/A"
+  user_search_list = `security list-keychains -d user 2>&1`.strip rescue "N/A"
+  sys_search_list = `security list-keychains -d system 2>&1`.strip rescue "N/A"
+
+  UI.message("🔑 [2] Cấu hình Keychain macOS:")
+  UI.message("   - Default Keychain: #{default_kc}")
+  UI.message("   - User Search List:\n#{user_search_list.split("\n").map { |l| "       #{l}" }.join("\n")}")
+  UI.message("   - System Search List:\n#{sys_search_list.split("\n").map { |l| "       #{l}" }.join("\n")}")
+
+  # 3. Identities trong Search List hiện tại
+  all_ids = `security find-identity -p codesigning 2>&1`.strip rescue "N/A"
+  valid_ids = `security find-identity -v -p codesigning 2>&1`.strip rescue "N/A"
+
+  UI.message("📋 [3] Code Signing Identities trong Search List hiện hành:")
+  UI.message("   [Tất cả identities (-p codesigning)]:\n#{all_ids.split("\n").map { |l| "       #{l}" }.join("\n")}")
+  UI.message("   [Identities hợp lệ (-v -p codesigning)]:\n#{valid_ids.split("\n").map { |l| "       #{l}" }.join("\n")}")
+
+  # 4. Quét từng file Keychain cụ thể trên máy
+  keychain_files = Dir.glob(File.expand_path("~/Library/Keychains/*keychain*")) + [
+    "/Library/Keychains/System.keychain"
+  ]
+  keychain_files = keychain_files.select { |p| File.file?(p) }.uniq
+
+  UI.message("📂 [4] Quét danh sách file Keychain trên ổ đĩa:")
+  keychain_files.each do |kc|
+    kc_name = File.basename(kc)
+    kc_all = `security find-identity -p codesigning "#{kc}" 2>&1`.strip rescue "N/A"
+    kc_val = `security find-identity -v -p codesigning "#{kc}" 2>&1`.strip rescue "N/A"
+    UI.message("   📁 #{kc_name} (#{kc}):")
+    UI.message("      - Tất cả: #{kc_all.lines.last&.strip || kc_all}")
+    UI.message("      - Hợp lệ: #{kc_val.lines.last&.strip || kc_val}")
+    if kc_all.include?("identities found") && !kc_all.include?("0 identities found")
+      UI.message("      - Chi tiết:\n#{kc_all.split("\n").map { |l| "         #{l}" }.join("\n")}")
+    end
+  end
+  UI.message("🔍 ========================================================")
 end
 
 platform :standalone do
@@ -308,6 +371,9 @@ platform :standalone do
     UI.message("🚀 Build Number: #{build_number}")
     UI.message("🚀 ========================================================")
 
+    # 1. Log kiểm tra trạng thái ban đầu
+    log_keychain_and_signing_status("1. TRƯỚC KHI ĐỒNG BỘ CHỨNG CHỈ")
+
     # 2. Tải và cài đặt Certificates qua Match nếu không bỏ qua (chuẩn hóa tương tự macos.rb)
     skip_certs = options[:skip_certs] == true || options[:skip_certs] == "true"
     if !skip_certs
@@ -328,9 +394,17 @@ platform :standalone do
           readonly: is_readonly,
           skip_provisioning_profiles: true
         )
+        UI.success("🎉 Fastlane Match hoàn tất đồng bộ chứng chỉ Developer ID Application!")
       rescue => e
-        UI.important("⚠️ Không thể đồng bộ qua Match (#{e.message}). Sẽ tiếp tục nếu chứng chỉ đã có sẵn trên máy.")
+        UI.error("❌ Lỗi xảy ra trong quá trình chạy Match Developer ID: #{e.class} - #{e.message}")
+        UI.error("❌ Chi tiết Backtrace:\n#{e.backtrace.first(8).join("\n")}") if e.backtrace
+        UI.important("⚠️ Sẽ tiếp tục tiến trình nếu chứng chỉ đã có sẵn trên máy...")
       end
+
+      # Log kiểm tra sau khi chạy Match
+      log_keychain_and_signing_status("2. SAU KHI ĐỒNG BỘ MATCH")
+    else
+      UI.message("ℹ️ Bỏ qua bước đồng bộ chứng chỉ do skip_certs: true")
     end
 
     if is_electron_app?(app_info, workspace_dir)
@@ -357,8 +431,13 @@ platform :standalone do
                     "npx electron-builder --mac"
                   end
 
+      # Log kiểm tra ngay trước khi build electron
+      log_keychain_and_signing_status("3. NGAY TRƯỚC KHI CHẠY ELECTRON-BUILDER")
+
       UI.message("🛠 Đang đóng gói Electron macOS Standalone: #{build_cmd}")
       run_node_cmd(build_cmd, workspace_dir)
+
+      log_keychain_and_signing_status("4. SAU KHI CHẠY ELECTRON-BUILDER")
 
       dist_dir = File.join(workspace_dir, "dist")
       dmg_files = Dir.glob(File.join(dist_dir, "*.dmg"))
