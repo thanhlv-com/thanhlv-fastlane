@@ -144,6 +144,50 @@ def configure_electron_macos_signing!(workspace_dir)
   end
 end
 
+# Tự động tải và nạp các Apple Intermediate CA & Root CA Certificates vào Keychain
+# Giải quyết triệt để lỗi CSSMERR_TP_NOT_TRUSTED trên môi trường CI (GitHub Actions)
+def install_apple_intermediate_certificates!(keychain_path)
+  return unless keychain_path && File.exist?(keychain_path)
+
+  cert_urls = [
+    # Developer ID CAs (Tối quan trọng cho Developer ID Application / Installer)
+    "https://www.apple.com/certificateauthority/DeveloperIDCA.cer",
+    "https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer",
+    # WWDR CAs (G1 -> G6)
+    "https://www.apple.com/certificateauthority/AppleWWDRCAG2.cer",
+    "https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer",
+    "https://www.apple.com/certificateauthority/AppleWWDRCAG4.cer",
+    "https://www.apple.com/certificateauthority/AppleWWDRCAG5.cer",
+    "https://www.apple.com/certificateauthority/AppleWWDRCAG6.cer",
+    # Apple Root CAs
+    "https://www.apple.com/appleca/AppleIncRootCertificate.cer",
+    "https://www.apple.com/certificateauthority/AppleRootCA-G2.cer",
+    "https://www.apple.com/certificateauthority/AppleRootCA-G3.cer"
+  ]
+
+  UI.message("🌐 Đang kiểm tra & nạp Apple Intermediate & Root CA Certificates để khắc phục CSSMERR_TP_NOT_TRUSTED...")
+  cert_urls.each do |url|
+    filename = File.basename(url)
+    tmp_cert = File.join(Dir.tmpdir, filename)
+    sh("curl -fsSL --retry 3 --retry-all-errors \"#{url}\" -o \"#{tmp_cert}\"") rescue nil
+    if File.exist?(tmp_cert)
+      sh("security add-certificates -k \"#{keychain_path}\" \"#{tmp_cert}\"") rescue nil
+    end
+  end
+
+  # Đảm bảo Keychain mục tiêu và các System Keychains nằm trong danh sách tìm kiếm (Search List)
+  current_search_list = `security list-keychains -d user 2>/dev/null`.scan(/"([^"]+)"/).flatten
+  needed_keychains = ([keychain_path] + current_search_list + [
+    File.expand_path("~/Library/Keychains/login.keychain-db"),
+    File.expand_path("~/Library/Keychains/login.keychain"),
+    "/Library/Keychains/System.keychain",
+    "/System/Library/Keychains/SystemRootCertificates.keychain"
+  ]).compact.select { |p| File.exist?(p) }.uniq
+
+  sh("security list-keychains -d user -s #{needed_keychains.map(&:shellescape).join(' ')}") rescue nil
+  UI.success("✅ Đã nạp toàn bộ Apple Intermediate CAs và cập nhật Keychain Search List thành công!")
+end
+
 platform :standalone do
   before_all do
     setup_ci if is_ci
@@ -331,6 +375,9 @@ platform :standalone do
         ].compact
         keychain_path = keychain_candidates.find { |p| File.exist?(p) }
 
+        # Nạp Apple Intermediate & Root CAs để giải quyết triệt để lỗi CSSMERR_TP_NOT_TRUSTED trên CI
+        install_apple_intermediate_certificates!(keychain_path) if keychain_path
+
         # Kiểm tra xem Developer ID Application đã có mặt đầy đủ (cả cert + private key) trong Keychain chưa
         identities_out = sh("security find-identity -v -p codesigning #{keychain_path ? "\"#{keychain_path}\"" : ""}") rescue ""
         has_valid_identity = identities_out.include?("Developer ID Application") || identities_out.include?("Apple Distribution")
@@ -379,7 +426,11 @@ platform :standalone do
           UI.message("🔐 Cấu hình electron-builder CSC_KEYCHAIN: #{keychain_path}")
           UI.message("🔐 Cấu hình electron-builder CSC_NAME: #{ENV['CSC_NAME']}")
           identities_check = sh("security find-identity -v -p codesigning \"#{keychain_path}\"") rescue ""
-          UI.message("📋 Danh sách Code Signing Identities trong Keychain:\n#{identities_check.strip}")
+          UI.message("📋 Danh sách Code Signing Identities hợp lệ trong Keychain:\n#{identities_check.strip}")
+          if identities_check.include?("0 valid identities found")
+            all_ids = sh("security find-identity -p codesigning \"#{keychain_path}\"") rescue ""
+            UI.important("⚠️ Cảnh báo: Tất cả identities hiện diện trong Keychain:\n#{all_ids.strip}")
+          end
         end
       rescue => e
         UI.important("⚠️ Không thể tải Match certs (#{e.message}). Tiếp tục với chứng chỉ local hoặc ad-hoc.")
