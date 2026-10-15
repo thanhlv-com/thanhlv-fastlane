@@ -151,9 +151,11 @@ jobs:
         if: always()
         run: |
           mkdir -p build_output
-          shopt -s globstar nullglob
-          cp -f .workspace_code/**/dist/*.dmg .workspace_code/**/dist/*.zip .workspace_code/**/dist/*.blockmap build_output/ 2>/dev/null || true
-          find .workspace_code -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \; 2>/dev/null || true
+          shopt -s nullglob 2>/dev/null || true
+          cp -f .workspace_code/*/dist/*.dmg .workspace_code/*/dist/*.zip .workspace_code/*/dist/*.blockmap build_output/ 2>/dev/null || true
+          if [ -d .workspace_code ]; then
+            find .workspace_code -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \; 2>/dev/null || true
+          fi
           echo "📦 Danh sách file trong build_output:"
           ls -la build_output/
 
@@ -251,9 +253,11 @@ jobs:
         shell: bash
         run: |
           mkdir -p build_output
-          shopt -s globstar nullglob
-          cp -f .workspace_code/**/dist/*.exe .workspace_code/**/dist/*.blockmap build_output/ 2>/dev/null || true
-          find .workspace_code -type f \( -name "*.exe" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \; 2>/dev/null || true
+          shopt -s nullglob 2>/dev/null || true
+          cp -f .workspace_code/*/dist/*.exe .workspace_code/*/dist/*.blockmap build_output/ 2>/dev/null || true
+          if [ -d .workspace_code ]; then
+            find .workspace_code -type f \( -name "*.exe" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \; 2>/dev/null || true
+          fi
           echo "📦 Danh sách file trong build_output:"
           ls -la build_output/
 
@@ -346,9 +350,11 @@ jobs:
         if: always()
         run: |
           mkdir -p build_output
-          shopt -s globstar nullglob
-          cp -f .workspace_code/**/dist/*.AppImage .workspace_code/**/dist/*.deb .workspace_code/**/dist/*.snap .workspace_code/**/dist/*.blockmap build_output/ 2>/dev/null || true
-          find .workspace_code -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \; 2>/dev/null || true
+          shopt -s nullglob 2>/dev/null || true
+          cp -f .workspace_code/*/dist/*.AppImage .workspace_code/*/dist/*.deb .workspace_code/*/dist/*.snap .workspace_code/*/dist/*.blockmap build_output/ 2>/dev/null || true
+          if [ -d .workspace_code ]; then
+            find .workspace_code -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \; 2>/dev/null || true
+          fi
           echo "📦 Danh sách file trong build_output:"
           ls -la build_output/
 
