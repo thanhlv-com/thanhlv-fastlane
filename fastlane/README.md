@@ -112,18 +112,26 @@ Tải Metadata từ App Store Connect về máy local (alias: pull_metadata)
 ### register_apps
 
 ```sh
-[bundle exec] fastlane register_apps [app:<app_key>|all] [platform:all|ios|macos]
+[bundle exec] fastlane register_apps
 ```
 
-Kiểm tra và đăng ký Apple Identifiers (Developer Portal) & Apps (App Store Connect) cho 1 app hoặc tất cả apps
+Kiểm tra và đăng ký Apple Identifiers (Developer Portal) & kiểm tra Apps trên App Store Connect cho 1 app hoặc tất cả apps
 
 ### register_identifiers
 
 ```sh
-[bundle exec] fastlane register_identifiers [app:<app_key>|all] [platform:all|ios|macos]
+[bundle exec] fastlane register_identifiers
 ```
 
 Kiểm tra và đăng ký Apple Identifiers & Apps (alias: register_apps)
+
+### import_developer_id
+
+```sh
+[bundle exec] fastlane import_developer_id
+```
+
+Import chứng chỉ Developer ID Application (.p12) vào apple-certificates-keystore (alias: standalone import_developer_id)
 
 ----
 
@@ -133,15 +141,15 @@ Kiểm tra và đăng ký Apple Identifiers & Apps (alias: register_apps)
 ### ios register_app
 
 ```sh
-[bundle exec] fastlane ios register_app [app:<app_key>|all]
+[bundle exec] fastlane ios register_app
 ```
 
-Kiểm tra & đăng ký Apple Identifier (Dev Portal) và App (App Store Connect) cho iOS (1 app hoặc tất cả apps)
+Kiểm tra & đăng ký Apple Identifier (Dev Portal) và kiểm tra App trên App Store Connect cho iOS (1 app hoặc tất cả apps)
 
 ### ios register_identifier
 
 ```sh
-[bundle exec] fastlane ios register_identifier [app:<app_key>|all]
+[bundle exec] fastlane ios register_identifier
 ```
 
 Kiểm tra & đăng ký Apple Identifier cho iOS (alias: register_app)
@@ -234,15 +242,15 @@ Khởi tạo thư mục và các file Metadata template mẫu cho iOS app
 ### mac register_app
 
 ```sh
-[bundle exec] fastlane mac register_app [app:<app_key>|all]
+[bundle exec] fastlane mac register_app
 ```
 
-Kiểm tra & đăng ký Apple Identifier (Dev Portal) và App (App Store Connect) cho macOS (1 app hoặc tất cả apps)
+Kiểm tra & đăng ký Apple Identifier (Dev Portal) và kiểm tra App trên App Store Connect cho macOS (1 app hoặc tất cả apps)
 
 ### mac register_identifier
 
 ```sh
-[bundle exec] fastlane mac register_identifier [app:<app_key>|all]
+[bundle exec] fastlane mac register_identifier
 ```
 
 Kiểm tra & đăng ký Apple Identifier cho macOS (alias: register_app)
@@ -538,6 +546,51 @@ Cập nhật Metadata Linux (alias: upload_metadata)
 ```
 
 Build Flutter Linux Release Executable / Bundle
+
+----
+
+
+## standalone
+
+### standalone import_developer_id
+
+```sh
+[bundle exec] fastlane standalone import_developer_id
+```
+
+Import chứng chỉ Developer ID Application (.p12) vào apple-certificates-keystore qua Match
+
+### standalone mac_build
+
+```sh
+[bundle exec] fastlane standalone mac_build
+```
+
+Build ứng dụng Desktop Standalone cho macOS (.dmg / .zip)
+
+### standalone win_build
+
+```sh
+[bundle exec] fastlane standalone win_build
+```
+
+Build ứng dụng Desktop Standalone cho Windows (.exe)
+
+### standalone linux_build
+
+```sh
+[bundle exec] fastlane standalone linux_build
+```
+
+Build ứng dụng Desktop Standalone cho Linux (.AppImage / .deb)
+
+### standalone build
+
+```sh
+[bundle exec] fastlane standalone build
+```
+
+Dispatcher tự động điều hướng build Standalone theo platform (platform: all|macos|windows|linux)
 
 ----
 

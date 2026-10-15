@@ -266,31 +266,56 @@ platform :standalone do
 
   desc "Import chứng chỉ Developer ID Application (.p12) vào apple-certificates-keystore qua Match"
   lane :import_developer_id do |options|
-    p12_path = options[:p12_path] || UI.user_error!("Vui lòng chỉ định đường dẫn file: p12_path:<đường_dẫn_file_p12>")
+    p12_path = options[:p12_path]
+    p12_base64 = options[:p12_base64] || ENV["P12_BASE64"] || ENV["INPUT_P12_BASE64"]
     p12_password = options[:p12_password] || ENV["P12_PASSWORD"] || ENV["MATCH_PASSWORD"] || ""
-
-    UI.user_error!("Không tìm thấy file .p12 tại: #{p12_path}") unless File.exist?(p12_path)
 
     require 'tmpdir'
     require 'fileutils'
+    require 'base64'
     require 'match'
     require 'match/importer'
 
     tmp_dir = Dir.mktmpdir("dev_id_import_")
     begin
+      input_raw_p12 = File.join(tmp_dir, "input_raw.p12")
+
+      # 1. Trích xuất nội dung raw data từ p12_base64 hoặc p12_path (tự động decode Base64)
+      raw_content = nil
+      if p12_base64 && !p12_base64.to_s.strip.empty?
+        UI.message("📦 Phát hiện chuỗi Base64 truyền trực tiếp. Đang giải mã về raw data...")
+        cleaned_b64 = p12_base64.to_s.gsub(/[\r\n\s]/, '')
+        raw_content = Base64.decode64(cleaned_b64).b
+      elsif p12_path && File.exist?(p12_path)
+        raw_content = File.binread(p12_path) rescue "".b
+        # Tự động phát hiện nếu file tại p12_path chứa chuỗi Base64 thay vì raw binary
+        if !raw_content.b.start_with?("\x30\x82".b) && !raw_content.b.include?("BEGIN".b)
+          cleaned_b64 = raw_content.to_s.gsub(/[\r\n\s]/, '')
+          decoded = Base64.decode64(cleaned_b64).b rescue nil
+          if decoded && (decoded.start_with?("\x30\x82".b) || decoded.include?("BEGIN".b))
+            UI.message("📦 Nội dung file tại #{p12_path} là chuỗi Base64. Đã tự động giải mã về raw data!")
+            raw_content = decoded
+          end
+        end
+      else
+        UI.user_error!("Vui lòng cung cấp chuỗi Base64 (p12_base64:<chuỗi> / ENV['P12_BASE64']) hoặc đường dẫn file (p12_path:<đường_dẫn>)!")
+      end
+
+      UI.user_error!("❌ Dữ liệu chứng chỉ đầu vào rỗng!") if raw_content.nil? || raw_content.empty?
+
+      File.binwrite(input_raw_p12, raw_content)
+
       cer_pem = File.join(tmp_dir, "cert.pem")
       cer_der = File.join(tmp_dir, "cert.cer")
       key_pem = File.join(tmp_dir, "key.pem")
 
       legacy_flag = `openssl pkcs12 -help 2>&1`.include?("-legacy") ? "-legacy" : ""
 
-      raw_content = File.binread(p12_path) rescue ""
-
       UI.message("🔑 Đang xử lý và bóc tách Certificate + Private Key từ file đầu vào...")
 
-      # 1. Bóc tách Certificate & Private Key từ file đầu vào (hỗ trợ cả text PEM và binary PKCS#12)
+      # Bóc tách Certificate & Private Key từ file đầu vào (hỗ trợ cả text PEM và binary PKCS#12)
       if raw_content.include?("BEGIN")
-        UI.message("📄 File đầu vào phát hiện định dạng text PEM. Đang bóc tách Certificate và Private Key...")
+        UI.message("📄 Dữ liệu đầu vào phát hiện định dạng text PEM. Đang bóc tách Certificate và Private Key...")
         if raw_content.include?("CERTIFICATE")
           cert_match = raw_content.match(/(-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----)/m)
           File.write(cer_pem, cert_match[1]) if cert_match
@@ -305,8 +330,8 @@ platform :standalone do
         extracted = false
         passwords_to_try.each do |test_pass|
           ENV["DEV_ID_TEST_PASS"] = test_pass
-          extract_cert_cmd = "openssl pkcs12 #{legacy_flag} -in \"#{p12_path}\" -clcerts -nokeys -passin env:DEV_ID_TEST_PASS -out \"#{cer_pem}\" 2>/dev/null"
-          extract_key_cmd = "openssl pkcs12 #{legacy_flag} -in \"#{p12_path}\" -nocerts -nodes -passin env:DEV_ID_TEST_PASS -out \"#{key_pem}\" 2>/dev/null"
+          extract_cert_cmd = "openssl pkcs12 #{legacy_flag} -in \"#{input_raw_p12}\" -clcerts -nokeys -passin env:DEV_ID_TEST_PASS -out \"#{cer_pem}\" 2>/dev/null"
+          extract_key_cmd = "openssl pkcs12 #{legacy_flag} -in \"#{input_raw_p12}\" -nocerts -nodes -passin env:DEV_ID_TEST_PASS -out \"#{key_pem}\" 2>/dev/null"
           if system(extract_cert_cmd) && File.size?(cer_pem) && system(extract_key_cmd) && File.size?(key_pem)
             extracted = true
             break
@@ -420,6 +445,7 @@ platform :standalone do
     # 2. Tải và cài đặt Certificates qua Match nếu không bỏ qua (chuẩn hóa tương tự macos.rb)
     skip_certs = options[:skip_certs] == true || options[:skip_certs] == "true"
     if !skip_certs
+      match_output_dir = Dir.mktmpdir("match_out_")
       begin
         api_key = get_api_key rescue nil
         is_readonly = options[:readonly] != false && options[:readonly] != "false"
@@ -435,13 +461,37 @@ platform :standalone do
           app_identifier: bundle_id,
           api_key: api_key,
           readonly: is_readonly,
-          skip_provisioning_profiles: true
+          skip_provisioning_profiles: true,
+          output_path: match_output_dir
         )
         UI.success("🎉 Fastlane Match hoàn tất đồng bộ chứng chỉ Developer ID Application!")
+
+        # Tự động khắc phục nếu Keychain chưa có Code Signing Identity (do file .p12 trên Keystore là bản cũ dạng PEM)
+        check_identities = `security find-identity -v -p codesigning 2>/dev/null`
+        if !check_identities.include?("Developer ID Application")
+          downloaded_p12 = Dir.glob(File.join(match_output_dir, "*.p12")).first
+          downloaded_cer = Dir.glob(File.join(match_output_dir, "*.cer")).first
+          if downloaded_p12 && File.exist?(downloaded_p12)
+            content = File.binread(downloaded_p12) rescue ""
+            if content.include?("BEGIN")
+              UI.important("⚠️ Phát hiện Private Key từ Match lưu ở định dạng text PEM cũ khiến macOS security import bỏ qua.")
+              UI.message("🔧 Đang tự động nạp bổ sung Private Key vào Keychain...")
+              key_rsa = File.join(match_output_dir, "key_rsa.pem")
+              fixed_p12 = File.join(match_output_dir, "fixed.p12")
+              system("openssl rsa -in \"#{downloaded_p12}\" -out \"#{key_rsa}\" 2>/dev/null || cp \"#{downloaded_p12}\" \"#{key_rsa}\"")
+              system("openssl pkcs12 -export -legacy -nomac -inkey \"#{key_rsa}\" -in \"#{downloaded_cer}\" -out \"#{fixed_p12}\" -passout pass: 2>/dev/null")
+
+              target_kc = ENV["MATCH_KEYCHAIN_NAME"] ? FastlaneCore::Helper.keychain_path(ENV["MATCH_KEYCHAIN_NAME"]) : FastlaneCore::Helper.keychain_path("login.keychain")
+              FastlaneCore::KeychainImporter.import_file(fixed_p12, target_kc, keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"]) rescue nil
+            end
+          end
+        end
       rescue => e
         UI.error("❌ Lỗi xảy ra trong quá trình chạy Match Developer ID: #{e.class} - #{e.message}")
         UI.error("❌ Chi tiết Backtrace:\n#{e.backtrace.first(8).join("\n")}") if e.backtrace
         UI.important("⚠️ Sẽ tiếp tục tiến trình nếu chứng chỉ đã có sẵn trên máy...")
+      ensure
+        FileUtils.rm_rf(match_output_dir) if match_output_dir && File.exist?(match_output_dir)
       end
 
       ENV["CSC_NAME"] = "Developer ID Application"

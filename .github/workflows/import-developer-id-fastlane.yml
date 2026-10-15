@@ -8,6 +8,11 @@ on:
         description: "Chuỗi Base64 của file .p12 (chạy: base64 -i ~/Desktop/developer_id.p12 | pbcopy)"
         required: true
         type: string
+      p12_password:
+        description: "Mật khẩu file .p12 khi export từ Mac Keychain (để trống nếu không có mật khẩu)"
+        required: false
+        default: ""
+        type: string
       cert_id:
         description: "Apple Certificate ID (Tùy chọn, ví dụ: 9K3X84P2LQ - để trống sẽ tự lấy Serial Number)"
         required: false
@@ -37,6 +42,7 @@ env:
 
   # Inputs
   INPUT_P12_BASE64: ${{ inputs.p12_base64 }}
+  INPUT_P12_PASSWORD: ${{ inputs.p12_password }}
   INPUT_CERT_ID: ${{ inputs.cert_id }}
 
 jobs:
@@ -82,12 +88,14 @@ jobs:
           MATCH_PASSWORD: ${{ env.CFG_MATCH_PASSWORD }}
           MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ env.GH_REPO_OWNER }}/${{ env.KEYSTORE_REPO_NAME }}.git"
           MATCH_KEYCHAIN_PASSWORD: ${{ env.CFG_MATCH_KEYCHAIN_PASSWORD }}
+          P12_BASE64: ${{ env.INPUT_P12_BASE64 }}
+          P12_PASSWORD: ${{ env.INPUT_P12_PASSWORD }}
           CI: "true"
         run: |
-          echo "📦 Đang decode file .p12..."
-          echo "$INPUT_P12_BASE64" | base64 --decode > /tmp/developer_id_input.p12
-
-          ARGS="p12_path:/tmp/developer_id_input.p12 p12_password:$CFG_MATCH_PASSWORD"
+          ARGS=""
+          if [ -n "$P12_PASSWORD" ]; then
+            ARGS="p12_password:$P12_PASSWORD"
+          fi
           if [ -n "$INPUT_CERT_ID" ]; then
             ARGS="$ARGS cert_id:$INPUT_CERT_ID"
           fi
