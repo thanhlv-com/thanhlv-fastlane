@@ -139,11 +139,11 @@ Khi workflow chạy, hệ thống sẽ thực hiện hoàn toàn tự động:
 
 Sau khi workflow chạy thành công:
 
-### 1. Đồng bộ kiểm tra ở máy local (Read-Only)
+### 1. Đồng bộ và sử dụng khi Build Standalone macOS
+Chứng chỉ sau khi import sẽ được tự động tải và cài đặt vào Keychain trong quy trình build:
 ```bash
-fastlane standalone sync_developer_id readonly:true
+fastlane standalone mac_build app:<app_key>
 ```
-Match sẽ tải chứng chỉ từ Git về, giải mã bằng `MATCH_PASSWORD` và cài vào Keychain máy local mà không cần gọi lệnh tạo mới.
 
 ### 2. Sử dụng trong quy trình Build Standalone macOS (CI/CD)
 Tất cả các workflow build độc lập macOS (Flutter Desktop hoặc Electron DMG/PKG) trên GitHub Actions sẽ tự động nhận diện và giải mã chứng chỉ này để ký số và gửi công chứng (Notarize) lên Apple:
