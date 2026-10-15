@@ -349,52 +349,50 @@ platform :standalone do
       # Chuyển cert sang định dạng DER (.cer) cho Match
       sh("openssl x509 -in \"#{cer_pem}\" -outform der -out \"#{cer_der}\"")
 
-      # 2. Xác định mã ID định danh (Certificate ID hoặc Serial Number)
+      # 2. Xác định mã ID định danh (Apple Certificate ID hoặc Serial Number)
       cert_obj = OpenSSL::X509::Certificate.new(File.read(cer_pem))
       serial_hex = cert_obj.serial.to_s(16).upcase
       cert_id = options[:cert_id] || ENV["CERT_ID"]
-      cert_id = serial_hex if cert_id.nil? || cert_id.to_s.strip.empty?
+
+      api_key = get_api_key rescue nil
+
+      if cert_id.nil? || cert_id.to_s.strip.empty?
+        if api_key
+          begin
+            require 'spaceship'
+            token = Spaceship::ConnectAPI::Token.create(**api_key)
+            Spaceship::ConnectAPI.token = token
+            models = Spaceship::ConnectAPI.get_certificates.to_models
+            matching_cert = models.find do |c|
+              c.serial_number.to_s.upcase == serial_hex
+            end
+            if matching_cert
+              cert_id = matching_cert.id
+              UI.success("🔍 Đã tự động khớp Apple Certificate ID từ Developer Portal: #{cert_id} (Serial: #{serial_hex})")
+            end
+          rescue => err
+            UI.message("⚠️ Không thể truy vấn Certificate ID từ API: #{err.message}")
+          end
+        end
+        cert_id ||= serial_hex
+      end
 
       final_cer = File.join(tmp_dir, "#{cert_id}.cer")
       final_p12 = File.join(tmp_dir, "#{cert_id}.p12")
       FileUtils.cp(cer_der, final_cer)
 
-      # 3. Tải các chứng chỉ trung gian của Apple để nhúng kèm vào file .p12 (tạo trọn vẹn Trust Chain)
-      UI.message("🌐 Đang tải và nhúng Apple Intermediate CA chain vào gói PKCS#12...")
-      chain_pem = File.join(tmp_dir, "chain.pem")
-      File.write(chain_pem, "")
-      [
-        "https://www.apple.com/certificateauthority/DeveloperIDCA.cer",
-        "https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer",
-        "https://www.apple.com/appleca/AppleIncRootCertificate.cer"
-      ].each do |ca_url|
-        ca_name = File.basename(ca_url)
-        ca_cer = File.join(tmp_dir, ca_name)
-        ca_out_pem = File.join(tmp_dir, "#{ca_name}.pem")
-        system("curl -fsSL --retry 3 \"#{ca_url}\" -o \"#{ca_cer}\"")
-        if File.exist?(ca_cer)
-          sh("openssl x509 -inform der -in \"#{ca_cer}\" -out \"#{ca_out_pem}\"") rescue nil
-          if File.exist?(ca_out_pem)
-            File.open(chain_pem, "a") { |f| f.write(File.read(ca_out_pem) + "\n") }
-          end
-        end
-      end
-
-      # 4. Đóng gói Private Key RSA, Certificate và Chain vào file .p12 chuẩn PKCS#12 (TripleDES, -nomac, pass rỗng)
+      # 3. Chuẩn hóa Private Key RSA thuần túy (Fastlane Match lưu private key dạng unencrypted PEM RSA Key trong file .p12 trước khi mã hóa kho Git)
       key_rsa = File.join(tmp_dir, "key_rsa.pem")
       sh("openssl rsa -in \"#{key_pem}\" -out \"#{key_rsa}\"") rescue FileUtils.cp(key_pem, key_rsa)
-      certfile_arg = File.size?(chain_pem) ? "-certfile \"#{chain_pem}\"" : ""
-      sh("openssl pkcs12 -export -legacy -nomac -inkey \"#{key_rsa}\" -in \"#{cer_pem}\" #{certfile_arg} -out \"#{final_p12}\" -passout pass:")
+      File.write(final_p12, File.read(key_rsa))
 
-      # 5. Xác thực độ toàn vẹn của file PKCS#12 vừa tạo trước khi đẩy lên Keystore
-      verify_out = `openssl pkcs12 -info -noout -passin pass: -in "#{final_p12}" 2>&1`
+      # 4. Xác thực độ toàn vẹn của Private Key
+      verify_out = `openssl rsa -check -noout -in "#{final_p12}" 2>&1`
       if $?.success?
-        UI.success("✅ File PKCS#12 (.p12) đã được kiểm tra và xác nhận đạt chuẩn 100% Apple Security!")
+        UI.success("✅ Private Key RSA (.p12) đã được kiểm tra và xác nhận đạt chuẩn 100% Fastlane Match!")
       else
-        UI.user_error!("❌ Lỗi xác thực file PKCS#12 vừa tạo: #{verify_out.strip}")
+        UI.user_error!("❌ Lỗi xác thực Private Key vừa tạo: #{verify_out.strip}")
       end
-
-      api_key = get_api_key rescue nil
 
       match_params = {
         type: "developer_id",
@@ -403,6 +401,7 @@ platform :standalone do
         storage_mode: "git",
         git_branch: "master",
         shallow_clone: true,
+        clone_branch_directly: true,
         skip_provisioning_profiles: true,
         skip_certificate_matching: true,
         api_key: api_key
@@ -461,6 +460,7 @@ platform :standalone do
           app_identifier: bundle_id,
           api_key: api_key,
           readonly: is_readonly,
+          clone_branch_directly: true,
           skip_provisioning_profiles: true,
           output_path: match_output_dir
         )
@@ -469,21 +469,103 @@ platform :standalone do
         # Tự động khắc phục nếu Keychain chưa có Code Signing Identity (do file .p12 trên Keystore là bản cũ dạng PEM)
         check_identities = `security find-identity -v -p codesigning 2>/dev/null`
         if !check_identities.include?("Developer ID Application")
-          downloaded_p12 = Dir.glob(File.join(match_output_dir, "*.p12")).first
-          downloaded_cer = Dir.glob(File.join(match_output_dir, "*.cer")).first
-          if downloaded_p12 && File.exist?(downloaded_p12)
-            content = File.binread(downloaded_p12) rescue ""
-            if content.include?("BEGIN")
-              UI.important("⚠️ Phát hiện Private Key từ Match lưu ở định dạng text PEM cũ khiến macOS security import bỏ qua.")
-              UI.message("🔧 Đang tự động nạp bổ sung Private Key vào Keychain...")
-              key_rsa = File.join(match_output_dir, "key_rsa.pem")
-              fixed_p12 = File.join(match_output_dir, "fixed.p12")
-              system("openssl rsa -in \"#{downloaded_p12}\" -out \"#{key_rsa}\" 2>/dev/null || cp \"#{downloaded_p12}\" \"#{key_rsa}\"")
-              system("openssl pkcs12 -export -legacy -nomac -inkey \"#{key_rsa}\" -in \"#{downloaded_cer}\" -out \"#{fixed_p12}\" -passout pass: 2>/dev/null")
+          UI.important("⚠️ Không tìm thấy Developer ID Application trong Keychain sau bước Match. Đang kích hoạt tự phục hồi...")
 
-              target_kc = ENV["MATCH_KEYCHAIN_NAME"] ? FastlaneCore::Helper.keychain_path(ENV["MATCH_KEYCHAIN_NAME"]) : FastlaneCore::Helper.keychain_path("login.keychain")
-              FastlaneCore::KeychainImporter.import_file(fixed_p12, target_kc, keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"]) rescue nil
+          candidate_p12s = Dir.glob(File.join(match_output_dir, "**", "*.{p12,P12,key,pem}"))
+          candidate_cers = Dir.glob(File.join(match_output_dir, "**", "*.{cer,CER,crt}"))
+
+          UI.message("🔍 Files in match_output_dir: #{Dir.glob(File.join(match_output_dir, '**', '*'))}")
+
+          downloaded_p12 = candidate_p12s.uniq.select { |f| File.file?(f) && File.size?(f) }.first
+          downloaded_cer = candidate_cers.uniq.select { |f| File.file?(f) && File.size?(f) }.first
+
+          UI.message("🔍 Tìm thấy file key: #{downloaded_p12}")
+          UI.message("🔍 Tìm thấy file cert: #{downloaded_cer}")
+
+          if downloaded_p12 && downloaded_cer
+            raw_key = File.binread(downloaded_p12) rescue "".b
+            UI.message("🔍 Dung lượng key: #{raw_key.bytesize} bytes, 50 bytes đầu: #{raw_key[0..50].inspect}")
+
+            # 1. Tự động decode Base64 nếu file ở dạng text Base64
+            if !raw_key.b.start_with?("\x30\x82".b) && !raw_key.b.include?("BEGIN".b)
+              cleaned = raw_key.to_s.gsub(/[\r\n\s]/, '')
+              decoded = Base64.decode64(cleaned).b rescue nil
+              if decoded && (decoded.start_with?("\x30\x82".b) || decoded.include?("BEGIN".b))
+                UI.message("📦 Đã decode Base64 thành công về raw data!")
+                raw_key = decoded
+              end
             end
+
+            work_dir = Dir.mktmpdir("recover_dev_id_")
+            begin
+              key_raw_file = File.join(work_dir, "key_raw.p12")
+              File.binwrite(key_raw_file, raw_key)
+              key_pem = File.join(work_dir, "key.pem")
+              fixed_p12 = File.join(work_dir, "fixed.p12")
+              legacy_flag = `openssl pkcs12 -help 2>&1`.include?("-legacy") ? "-legacy" : ""
+
+              # 2. Trích xuất Private Key về file PEM chuẩn
+              key_extracted = false
+              if raw_key.include?("BEGIN".b)
+                UI.message("📄 Định dạng key là text PEM. Đang trích xuất Private Key...")
+                key_match = raw_key.match(/(-----BEGIN [A-Z ]*PRIVATE KEY-----[^-]+-----END [A-Z ]*PRIVATE KEY-----)/m)
+                if key_match
+                  File.write(key_pem, key_match[1])
+                  key_extracted = true
+                else
+                  File.binwrite(key_pem, raw_key)
+                  key_extracted = true
+                end
+              else
+                UI.message("🔐 Định dạng key là binary PKCS#12. Đang giải mã Private Key...")
+                passwords_to_try = [ENV["MATCH_PASSWORD"], "", ENV["P12_PASSWORD"]].compact.uniq
+                passwords_to_try.each do |pass|
+                  ENV["RECOVER_PASS"] = pass
+                  cmd = "openssl pkcs12 #{legacy_flag} -in \"#{key_raw_file}\" -nocerts -nodes -passin env:RECOVER_PASS -out \"#{key_pem}\" 2>/dev/null"
+                  if system(cmd) && File.size?(key_pem)
+                    key_extracted = true
+                    break
+                  end
+                end
+              end
+
+              # Chuyển private key sang chuẩn RSA thuần túy
+              key_rsa = File.join(work_dir, "key_rsa.pem")
+              system("openssl rsa -in \"#{key_pem}\" -out \"#{key_rsa}\" 2>/dev/null || cp \"#{key_pem}\" \"#{key_rsa}\"")
+
+              # Chuyển cert sang PEM nếu đang là DER (.cer)
+              cer_pem = File.join(work_dir, "cert.pem")
+              system("openssl x509 -inform der -in \"#{downloaded_cer}\" -out \"#{cer_pem}\" 2>/dev/null || cp \"#{downloaded_cer}\" \"#{cer_pem}\"")
+
+              # 3. Nạp trực tiếp Private Key (dạng PEM) và Certificate vào Keychain
+              target_keychains = [
+                (ENV["MATCH_KEYCHAIN_NAME"] ? (FastlaneCore::Helper.keychain_path(ENV["MATCH_KEYCHAIN_NAME"]) rescue nil) : nil),
+                (FastlaneCore::Helper.keychain_path("fastlane_tmp_keychain") rescue nil),
+                (FastlaneCore::Helper.keychain_path("login.keychain") rescue nil)
+              ].compact.uniq.select { |p| File.exist?(p) }
+
+              target_keychains.each do |kc|
+                UI.message("🔑 Đang nạp Private Key và Certificate vào Keychain: #{kc}...")
+                sh_key = `security import "#{key_rsa}" -k "#{kc}" -P "" -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild -T /usr/bin/productsign 2>&1`
+                UI.message("   ↳ security import (key): #{sh_key.strip}") unless sh_key.strip.empty?
+
+                if File.exist?(downloaded_cer)
+                  sh_cer = `security import "#{downloaded_cer}" -k "#{kc}" -P "" 2>&1`
+                  UI.message("   ↳ security import (cert): #{sh_cer.strip}") unless sh_cer.strip.empty?
+                end
+
+                # Cấp quyền codesign partition list tránh bị hỏi mật khẩu khi ký
+                kc_pass = ENV["MATCH_KEYCHAIN_PASSWORD"] || ""
+                `security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "#{kc_pass}" "#{kc}" 2>/dev/null`
+              end
+
+              UI.success("🎉 Đã hoàn tất tự phục hồi Developer ID Application vào Keychain!")
+            ensure
+              ENV.delete("RECOVER_PASS")
+              FileUtils.rm_rf(work_dir) if work_dir && File.exist?(work_dir)
+            end
+          else
+            UI.error("❌ Không tìm thấy file key/cert nào trên hệ thống để tự phục hồi!")
           end
         end
       rescue => e
