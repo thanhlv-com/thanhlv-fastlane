@@ -160,6 +160,7 @@ platform :standalone do
       app_identifier: bundle_id,
       api_key: api_key,
       readonly: is_readonly,
+      skip_provisioning_profiles: true,
       force: is_force
     )
     UI.success("🎉 Hoàn tất đồng bộ/cập nhật Developer ID Application Certificate trên Keystore!")
@@ -182,7 +183,6 @@ platform :standalone do
       cer_pem = File.join(tmp_dir, "cert.pem")
       cer_der = File.join(tmp_dir, "cert.cer")
       key_pem = File.join(tmp_dir, "key.pem")
-      match_p12 = File.join(tmp_dir, "match.p12")
 
       # Kiểm tra cờ -legacy cho OpenSSL 3+ (cần thiết để giải mã thuật toán RC2-40-CBC xuất từ macOS Keychain)
       legacy_flag = `openssl pkcs12 -help 2>&1`.include?("-legacy") ? "-legacy" : ""
@@ -195,13 +195,10 @@ platform :standalone do
       sh("openssl pkcs12 #{legacy_flag} -in \"#{p12_path}\" -clcerts -nokeys -passin env:DEV_ID_IMPORT_PASS -out \"#{cer_pem}\"")
       sh("openssl x509 -in \"#{cer_pem}\" -outform der -out \"#{cer_der}\"")
 
-      # 2. Trích xuất Private Key
+      # 2. Trích xuất Private Key dạng PEM unencrypted (Fastlane Match lưu private key dạng unencrypted PEM RSA trong file .p12)
       sh("openssl pkcs12 #{legacy_flag} -in \"#{p12_path}\" -nocerts -nodes -passin env:DEV_ID_IMPORT_PASS -out \"#{key_pem}\"")
 
-      # 3. Tạo file .p12 chuẩn Match (password rỗng, legacy flag để tương thích tối đa với macOS Keychain)
-      sh("openssl pkcs12 -export #{legacy_flag} -inkey \"#{key_pem}\" -in \"#{cer_pem}\" -passout pass:\"\" -out \"#{match_p12}\"")
-
-      # 4. Xác định mã ID định danh (Certificate ID hoặc Serial Number)
+      # 3. Xác định mã ID định danh (Certificate ID hoặc Serial Number)
       cert_obj = OpenSSL::X509::Certificate.new(File.read(cer_pem))
       serial_hex = cert_obj.serial.to_s(16).upcase
       cert_id = options[:cert_id] || ENV["CERT_ID"]
@@ -210,7 +207,8 @@ platform :standalone do
       final_cer = File.join(tmp_dir, "#{cert_id}.cer")
       final_p12 = File.join(tmp_dir, "#{cert_id}.p12")
       FileUtils.cp(cer_der, final_cer)
-      FileUtils.cp(match_p12, final_p12)
+      # Fastlane Match yêu cầu file .p12 chứa Private Key dạng PEM (không đặt password để security import trên macOS không bị lỗi MAC verification)
+      FileUtils.cp(key_pem, final_p12)
 
       api_key = get_api_key rescue nil
 
@@ -271,10 +269,12 @@ platform :standalone do
             platform: "macos",
             app_identifier: bundle_id,
             api_key: api_key,
-            readonly: is_readonly
+            readonly: is_readonly,
+            skip_provisioning_profiles: true
           )
+          ENV["CSC_NAME"] = "Developer ID Application"
         rescue => e_dev
-          UI.important("ℹ️ Keystore chưa có Developer ID cert (#{e_dev.message}). Fallback sang Distribution cert...")
+          UI.important("ℹ️ Không thể đồng bộ Developer ID cert (#{e_dev.message}). Fallback sang Distribution cert...")
           match(
             type: "appstore",
             platform: "macos",
