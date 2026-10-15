@@ -351,11 +351,22 @@ platform :standalone do
               sh("openssl x509 -inform der -in \"#{cer_file}\" -out \"#{cer_pem}\"") rescue FileUtils.cp(cer_file, cer_pem)
               sh("openssl rsa -in \"#{p12_file}\" -out \"#{key_rsa}\"") rescue FileUtils.cp(p12_file, key_rsa)
               legacy_flag = `openssl pkcs12 -help 2>&1`.include?("-legacy") ? "-legacy" : ""
-              sh("openssl pkcs12 -export #{legacy_flag} -inkey \"#{key_rsa}\" -in \"#{cer_pem}\" -out \"#{fixed_p12}\" -passout pass:")
-
               target_kc = keychain_path || File.expand_path("~/Library/Keychains/fastlane_tmp_keychain-db")
               kc_pass = ENV["MATCH_KEYCHAIN_PASSWORD"] || ""
-              sh("security import \"#{fixed_p12}\" -k \"#{target_kc}\" -P \"\" -T /usr/bin/codesign -T /usr/bin/security") rescue nil
+              temp_p12_pass = "codesign_identity_pass_123"
+
+              # Cách 1: PBE-SHA1-3DES + macalg sha1 + password cụ thể (tránh lỗi MAC verification trên OpenSSL 3 với empty password)
+              sh("openssl pkcs12 -export #{legacy_flag} -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 -inkey \"#{key_rsa}\" -in \"#{cer_pem}\" -out \"#{fixed_p12}\" -passout pass:#{temp_p12_pass}") rescue nil
+              sh("security import \"#{fixed_p12}\" -k \"#{target_kc}\" -P \"#{temp_p12_pass}\" -T /usr/bin/codesign -T /usr/bin/security") rescue nil
+
+              # Cách 2 (Dự phòng): -nomac + password cụ thể
+              identities_test = sh("security find-identity -v -p codesigning \"#{target_kc}\"") rescue ""
+              unless identities_test.include?("Developer ID Application")
+                sh("openssl pkcs12 -export #{legacy_flag} -nomac -inkey \"#{key_rsa}\" -in \"#{cer_pem}\" -out \"#{fixed_p12}\" -passout pass:#{temp_p12_pass}") rescue nil
+                sh("security import \"#{fixed_p12}\" -k \"#{target_kc}\" -P \"#{temp_p12_pass}\" -T /usr/bin/codesign -T /usr/bin/security") rescue nil
+              end
+
+              # Phân quyền partition list cho codesign
               sh("security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k \"#{kc_pass}\" \"#{target_kc}\"") rescue nil
               UI.success("🎉 Đã phục hồi và nạp Code Signing Identity thành công vào #{File.basename(target_kc)}!")
             end
