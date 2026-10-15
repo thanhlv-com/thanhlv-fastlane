@@ -124,6 +124,11 @@ lane :sync_developer_id do |options|
   standalone_sync_developer_id(options)
 end
 
+desc "Import chứng chỉ Developer ID Application (.p12) vào apple-certificates-keystore (alias: standalone import_developer_id)"
+lane :import_developer_id do |options|
+  standalone_import_developer_id(options)
+end
+
 # 2. Import các lane theo từng nền tảng
 import "lanes/ios.rb"
 import "lanes/macos.rb"

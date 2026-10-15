@@ -1,0 +1,106 @@
+name: Import Developer ID Certificate (to Keystore)
+run-name: "Import Developer ID Cert to Keystore"
+
+on:
+  workflow_dispatch:
+    inputs:
+      p12_base64:
+        description: "Chuỗi Base64 của file .p12 (chạy: base64 -i ~/Desktop/developer_id.p12 | pbcopy)"
+        required: true
+        type: string
+
+# ==============================================================================
+# KHAI BÁO TẬP TRUNG TẤT CẢ BIẾN MÔI TRƯỜNG & SECRETS TỪ GITHUB
+# ==============================================================================
+env:
+  # GitHub App & Repository Context
+  GH_APP_ID: "3766151"
+  GH_APP_PRIVATE_KEY: ${{ secrets.THANHLV_PRIVATE_KEY }}
+  GH_REPO_OWNER: ${{ github.repository_owner }}
+  KEYSTORE_REPO_NAME: "apple-certificates-keystore"
+
+  # Apple Developer & App Store Connect Secrets
+  CFG_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+  CFG_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+  CFG_ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+  CFG_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+  CFG_ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
+
+  # Fastlane Match Secrets
+  CFG_MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+  CFG_MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD || 'ci_secure_keychain_pass' }}
+
+  # Inputs
+  INPUT_P12_BASE64: ${{ inputs.p12_base64 }}
+
+jobs:
+  import-developer-id:
+    name: "Import Developer ID Cert"
+    runs-on: macos-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 1. Tạo GitHub App Token có quyền ghi vào apple-certificates-keystore
+      - name: Generate GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.GH_APP_ID }}
+          private-key: ${{ env.GH_APP_PRIVATE_KEY }}
+          owner: ${{ env.GH_REPO_OWNER }}
+
+      # 2. Cấu hình Git dùng Token để push được vào Keystore
+      - name: Configure Git for Private Repositories
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/".insteadOf "git@github.com:"
+
+      # 3. Cài đặt Ruby & Bundler
+      - name: Setup Ruby & Bundler
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      # 4. Thực thi Import Certificate
+      - name: Import Developer ID Certificate via Match
+        env:
+          ASC_KEY_ID: ${{ env.CFG_ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ env.CFG_ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ env.CFG_ASC_KEY_CONTENT }}
+          APPLE_TEAM_ID: ${{ env.CFG_APPLE_TEAM_ID }}
+          ITC_TEAM_ID: ${{ env.CFG_ITC_TEAM_ID }}
+          MATCH_PASSWORD: ${{ env.CFG_MATCH_PASSWORD }}
+          MATCH_GIT_URL: "https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ env.GH_REPO_OWNER }}/${{ env.KEYSTORE_REPO_NAME }}.git"
+          MATCH_KEYCHAIN_PASSWORD: ${{ env.CFG_MATCH_KEYCHAIN_PASSWORD }}
+          CI: "true"
+        run: |
+          echo "📦 Đang decode file .p12..."
+          echo "$INPUT_P12_BASE64" | base64 --decode > /tmp/developer_id_input.p12
+
+          echo "🚀 Đang thực thi Import Developer ID vào Keystore (dùng MATCH_PASSWORD)..."
+          bundle exec fastlane standalone import_developer_id p12_path:/tmp/developer_id_input.p12 p12_password:"$CFG_MATCH_PASSWORD"
+
+      # 5. Gửi thông báo Telegram
+      - name: Send Telegram Notification
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          MESSAGE_THREAD_ID: ${{ vars.MESSAGE_THREAD_ID }}
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then ICON="✅ SUCCESS"; elif [ "$STATUS" = "cancelled" ]; then ICON="⚠️ CANCELLED"; else ICON="❌ FAILED"; fi
+          MESSAGE="🛡️ [Import Developer ID Cert to Keystore]
+          • Type: Developer ID Application (macOS)
+          • Status: ${ICON}
+          • Run Number: #${{ github.run_number }}
+          • Triggered by: ${{ github.actor }}
+          • URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d message_thread_id="${MESSAGE_THREAD_ID}" \
+            --data-urlencode text="${MESSAGE}"

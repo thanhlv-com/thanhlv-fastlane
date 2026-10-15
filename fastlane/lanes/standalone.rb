@@ -165,6 +165,60 @@ platform :standalone do
     UI.success("🎉 Hoàn tất đồng bộ/cập nhật Developer ID Application Certificate trên Keystore!")
   end
 
+  desc "Import chứng chỉ Developer ID Application (.p12) vào apple-certificates-keystore qua Match"
+  lane :import_developer_id do |options|
+    p12_path = options[:p12_path] || UI.user_error!("Vui lòng chỉ định đường dẫn file: p12_path:<đường_dẫn_file_p12>")
+    p12_password = options[:p12_password] || ENV["P12_PASSWORD"] || ENV["MATCH_PASSWORD"] || ""
+
+    UI.user_error!("Không tìm thấy file .p12 tại: #{p12_path}") unless File.exist?(p12_path)
+
+    require 'tmpdir'
+    require 'fileutils'
+    require 'match'
+    require 'match/importer'
+
+    tmp_dir = Dir.mktmpdir("dev_id_import_")
+    begin
+      cer_pem = File.join(tmp_dir, "cert.pem")
+      cer_der = File.join(tmp_dir, "cert.cer")
+      key_pem = File.join(tmp_dir, "key.pem")
+      match_p12 = File.join(tmp_dir, "match.p12")
+
+      UI.message("🔑 Đang xử lý file .p12 và trích xuất Certificate...")
+      
+      # 1. Trích xuất Certificate (PEM & DER)
+      sh("openssl pkcs12 -in \"#{p12_path}\" -clcerts -nokeys -passin pass:\"#{p12_password}\" -out \"#{cer_pem}\"")
+      sh("openssl x509 -in \"#{cer_pem}\" -outform der -out \"#{cer_der}\"")
+
+      # 2. Trích xuất Private Key
+      sh("openssl pkcs12 -in \"#{p12_path}\" -nocerts -nodes -passin pass:\"#{p12_password}\" -out \"#{key_pem}\"")
+
+      # 3. Tạo file .p12 chuẩn Match (password rỗng, vì repo Git đã được mã hóa toàn bộ bằng MATCH_PASSWORD)
+      sh("openssl pkcs12 -export -inkey \"#{key_pem}\" -in \"#{cer_pem}\" -passout pass:\"\" -out \"#{match_p12}\"")
+
+      api_key = get_api_key rescue nil
+
+      match_params = {
+        type: "developer_id",
+        platform: "macos",
+        git_url: ENV["MATCH_GIT_URL"] || "git@github.com:thanhlv-com/apple-certificates-keystore.git",
+        storage_mode: "git",
+        git_branch: "master",
+        shallow_clone: true,
+        api_key: api_key
+      }
+
+      config = FastlaneCore::Configuration.create(Match::Options.available_options, match_params)
+      UI.message("🚀 Đang mã hóa và đẩy chứng chỉ vào apple-certificates-keystore...")
+      Match::Importer.new.import_cert(config, cert_path: cer_der, p12_path: match_p12)
+      UI.success("🎉 Đã import và mã hóa thành công Developer ID Certificate vào Keystore!")
+    rescue => e
+      UI.user_error!("❌ Lỗi khi import chứng chỉ Developer ID: #{e.message}")
+    ensure
+      FileUtils.rm_rf(tmp_dir) if tmp_dir && File.exist?(tmp_dir)
+    end
+  end
+
   desc "Build ứng dụng Desktop Standalone cho macOS (.dmg / .zip)"
   lane :mac_build do |options|
     app_key = options[:app] || UI.user_error!("Vui lòng chỉ định app: fastlane standalone mac_build app:<app_key>")
