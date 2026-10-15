@@ -294,11 +294,33 @@ platform :standalone do
       final_p12 = File.join(tmp_dir, "#{cert_id}.p12")
       FileUtils.cp(cer_der, final_cer)
 
-      # Đóng gói Private Key & Certificate vào file .p12 chuẩn PKCS#12 không đặt password (-passout pass:)
-      # tương thích hoàn toàn với lệnh macOS 'security import' của Fastlane Match
+      # 4. Tải các chứng chỉ trung gian của Apple để nhúng kèm vào file .p12 (tạo trọn vẹn Trust Chain)
+      chain_pem = File.join(tmp_dir, "chain.pem")
+      File.write(chain_pem, "")
+      [
+        "https://www.apple.com/certificateauthority/DeveloperIDCA.cer",
+        "https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer",
+        "https://www.apple.com/appleca/AppleIncRootCertificate.cer"
+      ].each do |ca_url|
+        ca_name = File.basename(ca_url)
+        ca_cer = File.join(tmp_dir, ca_name)
+        ca_out_pem = File.join(tmp_dir, "#{ca_name}.pem")
+        sh("curl -fsSL --retry 3 \"#{ca_url}\" -o \"#{ca_cer}\"") rescue nil
+        if File.exist?(ca_cer)
+          sh("openssl x509 -inform der -in \"#{ca_cer}\" -out \"#{ca_out_pem}\"") rescue nil
+          if File.exist?(ca_out_pem)
+            File.open(chain_pem, "a") { |f| f.write(File.read(ca_out_pem) + "\n") }
+          end
+        end
+      end
+
+      # 5. Đóng gói Private Key, Certificate và Chain vào file .p12 chuẩn PKCS#12 (TripleDES, -nomac, pass rỗng)
+      # Giúp macOS 'security import' của Fastlane Match nạp thành công 100% cả private key lẫn intermediate certs,
+      # không bị lỗi Unknown format, không bị MAC verification failed và không bị CSSMERR_TP_NOT_TRUSTED
       key_rsa = File.join(tmp_dir, "key_rsa.pem")
       sh("openssl rsa -in \"#{key_pem}\" -out \"#{key_rsa}\"") rescue FileUtils.cp(key_pem, key_rsa)
-      sh("openssl pkcs12 -export #{legacy_flag} -inkey \"#{key_rsa}\" -in \"#{cer_pem}\" -out \"#{final_p12}\" -passout pass:")
+      certfile_arg = File.size?(chain_pem) ? "-certfile \"#{chain_pem}\"" : ""
+      sh("openssl pkcs12 -export #{legacy_flag} -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -nomac -inkey \"#{key_rsa}\" -in \"#{cer_pem}\" #{certfile_arg} -out \"#{final_p12}\" -passout pass:")
 
       api_key = get_api_key rescue nil
 
