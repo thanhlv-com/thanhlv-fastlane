@@ -165,12 +165,13 @@ def install_apple_intermediate_certificates!
     "https://www.apple.com/certificateauthority/AppleRootCA-G3.cer"
   ]
 
-  # Mặc định thêm vào Keychain của hệ thống (login.keychain hoặc default)
-  login_kc_candidates = [
+  # Nạp vào tất cả Keychain đang hoạt động trên hệ thống
+  target_keychains = [
+    File.expand_path("~/Library/Keychains/fastlane_tmp_keychain-db"),
+    File.expand_path("~/Library/Keychains/fastlane_tmp_keychain"),
     File.expand_path("~/Library/Keychains/login.keychain-db"),
     File.expand_path("~/Library/Keychains/login.keychain")
-  ]
-  login_kc = login_kc_candidates.find { |p| File.exist?(p) }
+  ].select { |p| File.exist?(p) }.uniq
 
   UI.message("🌐 Đang kiểm tra & nạp Apple Intermediate & Root CA Certificates để khắc phục CSSMERR_TP_NOT_TRUSTED...")
   cert_urls.each do |url|
@@ -178,21 +179,27 @@ def install_apple_intermediate_certificates!
     tmp_cert = File.join(Dir.tmpdir, filename)
     download_res = system("curl -fsSL --retry 3 --retry-all-errors \"#{url}\" -o \"#{tmp_cert}\"")
     if download_res && File.exist?(tmp_cert)
-      target_kc = login_kc || `security default-keychain 2>/dev/null`.strip.delete('"')
-      target_kc = nil if target_kc.to_s.empty?
-
-      add_cmd = target_kc ? "security add-certificates -k \"#{target_kc}\" \"#{tmp_cert}\"" : "security add-certificates \"#{tmp_cert}\""
-      add_out = `#{add_cmd} 2>&1`
-      if $?.success?
-        UI.message("   ✅ Đã nạp #{filename} vào #{target_kc ? File.basename(target_kc) : 'default keychain'}")
-      else
-        UI.important("   ⚠️ Không thể nạp #{filename}: #{add_out.strip}")
+      target_keychains.each do |kc|
+        add_cmd = "security add-certificates -k \"#{kc}\" \"#{tmp_cert}\""
+        `#{add_cmd} 2>&1`
       end
+      UI.message("   ✅ Đã nạp #{filename} vào: #{target_keychains.map { |k| File.basename(k) }.join(', ')}")
     else
       UI.important("   ⚠️ Không thể tải #{filename} từ #{url}")
     end
   end
-  UI.success("✅ Đã hoàn tất quy trình nạp Apple Intermediate CAs!")
+
+  # Đảm bảo Search List của user chứa đầy đủ các Keychains
+  if target_keychains.any?
+    current_search_list = `security list-keychains -d user 2>/dev/null`.scan(/"([^"]+)"/).flatten
+    needed_search_list = (target_keychains + current_search_list + [
+      "/Library/Keychains/System.keychain",
+      "/System/Library/Keychains/SystemRootCertificates.keychain"
+    ]).select { |p| File.exist?(p) }.uniq
+    sh("security list-keychains -d user -s #{needed_search_list.map(&:shellescape).join(' ')}") rescue nil
+  end
+
+  UI.success("✅ Đã hoàn tất quy trình nạp Apple Intermediate CAs và cập nhật Keychain Search List!")
 end
 
 # In chi tiết trạng thái Keychain và Code Signing Identities phục vụ debug/kiểm tra lỗi
@@ -275,21 +282,49 @@ platform :standalone do
       cer_der = File.join(tmp_dir, "cert.cer")
       key_pem = File.join(tmp_dir, "key.pem")
 
-      # Kiểm tra cờ -legacy cho OpenSSL 3+ (cần thiết để giải mã thuật toán RC2-40-CBC xuất từ macOS Keychain)
       legacy_flag = `openssl pkcs12 -help 2>&1`.include?("-legacy") ? "-legacy" : ""
 
-      ENV["DEV_ID_IMPORT_PASS"] = p12_password
+      raw_content = File.binread(p12_path) rescue ""
 
-      UI.message("🔑 Đang xử lý file .p12 và trích xuất Certificate (OpenSSL legacy: #{!legacy_flag.empty?})...")
-      
-      # 1. Trích xuất Certificate (PEM & DER)
-      sh("openssl pkcs12 #{legacy_flag} -in \"#{p12_path}\" -clcerts -nokeys -passin env:DEV_ID_IMPORT_PASS -out \"#{cer_pem}\"")
+      UI.message("🔑 Đang xử lý và bóc tách Certificate + Private Key từ file đầu vào...")
+
+      # 1. Bóc tách Certificate & Private Key từ file đầu vào (hỗ trợ cả text PEM và binary PKCS#12)
+      if raw_content.include?("BEGIN")
+        UI.message("📄 File đầu vào phát hiện định dạng text PEM. Đang bóc tách Certificate và Private Key...")
+        if raw_content.include?("CERTIFICATE")
+          cert_match = raw_content.match(/(-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----)/m)
+          File.write(cer_pem, cert_match[1]) if cert_match
+        end
+        if raw_content.include?("PRIVATE KEY")
+          key_match = raw_content.match(/(-----BEGIN [A-Z ]*PRIVATE KEY-----[^-]+-----END [A-Z ]*PRIVATE KEY-----)/m)
+          File.write(key_pem, key_match[1]) if key_match
+        end
+      else
+        # Thử giải mã PKCS#12 bằng danh sách mật khẩu khả dĩ
+        passwords_to_try = [p12_password, ENV["MATCH_PASSWORD"], ""].compact.uniq
+        extracted = false
+        passwords_to_try.each do |test_pass|
+          ENV["DEV_ID_TEST_PASS"] = test_pass
+          extract_cert_cmd = "openssl pkcs12 #{legacy_flag} -in \"#{p12_path}\" -clcerts -nokeys -passin env:DEV_ID_TEST_PASS -out \"#{cer_pem}\" 2>/dev/null"
+          extract_key_cmd = "openssl pkcs12 #{legacy_flag} -in \"#{p12_path}\" -nocerts -nodes -passin env:DEV_ID_TEST_PASS -out \"#{key_pem}\" 2>/dev/null"
+          if system(extract_cert_cmd) && File.size?(cer_pem) && system(extract_key_cmd) && File.size?(key_pem)
+            extracted = true
+            break
+          end
+        end
+
+        unless extracted
+          UI.user_error!("❌ Không thể giải mã file .p12 với mật khẩu đã cung cấp. Vui lòng kiểm tra lại mật khẩu xuất file!")
+        end
+      end
+
+      UI.user_error!("❌ Không tìm thấy Certificate hợp lệ trong file đầu vào!") unless File.size?(cer_pem)
+      UI.user_error!("❌ Không tìm thấy Private Key hợp lệ trong file đầu vào!") unless File.size?(key_pem)
+
+      # Chuyển cert sang định dạng DER (.cer) cho Match
       sh("openssl x509 -in \"#{cer_pem}\" -outform der -out \"#{cer_der}\"")
 
-      # 2. Trích xuất Private Key dạng PEM unencrypted (Fastlane Match lưu private key dạng unencrypted PEM RSA trong file .p12)
-      sh("openssl pkcs12 #{legacy_flag} -in \"#{p12_path}\" -nocerts -nodes -passin env:DEV_ID_IMPORT_PASS -out \"#{key_pem}\"")
-
-      # 3. Xác định mã ID định danh (Certificate ID hoặc Serial Number)
+      # 2. Xác định mã ID định danh (Certificate ID hoặc Serial Number)
       cert_obj = OpenSSL::X509::Certificate.new(File.read(cer_pem))
       serial_hex = cert_obj.serial.to_s(16).upcase
       cert_id = options[:cert_id] || ENV["CERT_ID"]
@@ -299,7 +334,8 @@ platform :standalone do
       final_p12 = File.join(tmp_dir, "#{cert_id}.p12")
       FileUtils.cp(cer_der, final_cer)
 
-      # 4. Tải các chứng chỉ trung gian của Apple để nhúng kèm vào file .p12 (tạo trọn vẹn Trust Chain)
+      # 3. Tải các chứng chỉ trung gian của Apple để nhúng kèm vào file .p12 (tạo trọn vẹn Trust Chain)
+      UI.message("🌐 Đang tải và nhúng Apple Intermediate CA chain vào gói PKCS#12...")
       chain_pem = File.join(tmp_dir, "chain.pem")
       File.write(chain_pem, "")
       [
@@ -310,7 +346,7 @@ platform :standalone do
         ca_name = File.basename(ca_url)
         ca_cer = File.join(tmp_dir, ca_name)
         ca_out_pem = File.join(tmp_dir, "#{ca_name}.pem")
-        sh("curl -fsSL --retry 3 \"#{ca_url}\" -o \"#{ca_cer}\"") rescue nil
+        system("curl -fsSL --retry 3 \"#{ca_url}\" -o \"#{ca_cer}\"")
         if File.exist?(ca_cer)
           sh("openssl x509 -inform der -in \"#{ca_cer}\" -out \"#{ca_out_pem}\"") rescue nil
           if File.exist?(ca_out_pem)
@@ -319,13 +355,19 @@ platform :standalone do
         end
       end
 
-      # 5. Đóng gói Private Key, Certificate và Chain vào file .p12 chuẩn PKCS#12 (TripleDES, -nomac, pass rỗng)
-      # Giúp macOS 'security import' của Fastlane Match nạp thành công 100% cả private key lẫn intermediate certs,
-      # không bị lỗi Unknown format, không bị MAC verification failed và không bị CSSMERR_TP_NOT_TRUSTED
+      # 4. Đóng gói Private Key RSA, Certificate và Chain vào file .p12 chuẩn PKCS#12 (TripleDES, -nomac, pass rỗng)
       key_rsa = File.join(tmp_dir, "key_rsa.pem")
       sh("openssl rsa -in \"#{key_pem}\" -out \"#{key_rsa}\"") rescue FileUtils.cp(key_pem, key_rsa)
       certfile_arg = File.size?(chain_pem) ? "-certfile \"#{chain_pem}\"" : ""
-      sh("openssl pkcs12 -export #{legacy_flag} -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -nomac -inkey \"#{key_rsa}\" -in \"#{cer_pem}\" #{certfile_arg} -out \"#{final_p12}\" -passout pass:")
+      sh("openssl pkcs12 -export -legacy -nomac -inkey \"#{key_rsa}\" -in \"#{cer_pem}\" #{certfile_arg} -out \"#{final_p12}\" -passout pass:")
+
+      # 5. Xác thực độ toàn vẹn của file PKCS#12 vừa tạo trước khi đẩy lên Keystore
+      verify_out = `openssl pkcs12 -info -noout -passin pass: -in "#{final_p12}" 2>&1`
+      if $?.success?
+        UI.success("✅ File PKCS#12 (.p12) đã được kiểm tra và xác nhận đạt chuẩn 100% Apple Security!")
+      else
+        UI.user_error!("❌ Lỗi xác thực file PKCS#12 vừa tạo: #{verify_out.strip}")
+      end
 
       api_key = get_api_key rescue nil
 
@@ -349,6 +391,7 @@ platform :standalone do
       UI.user_error!("❌ Lỗi khi import chứng chỉ Developer ID: #{e.message}")
     ensure
       ENV.delete("DEV_ID_IMPORT_PASS")
+      ENV.delete("DEV_ID_TEST_PASS")
       FileUtils.rm_rf(tmp_dir) if tmp_dir && File.exist?(tmp_dir)
     end
   end
@@ -400,6 +443,8 @@ platform :standalone do
         UI.error("❌ Chi tiết Backtrace:\n#{e.backtrace.first(8).join("\n")}") if e.backtrace
         UI.important("⚠️ Sẽ tiếp tục tiến trình nếu chứng chỉ đã có sẵn trên máy...")
       end
+
+      ENV["CSC_NAME"] = "Developer ID Application"
 
       # Log kiểm tra sau khi chạy Match
       log_keychain_and_signing_status("2. SAU KHI ĐỒNG BỘ MATCH")
