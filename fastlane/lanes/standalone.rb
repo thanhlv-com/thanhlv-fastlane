@@ -114,6 +114,32 @@ def notarize_macos_artifact(artifact_path, options = {})
       FileUtils.rm_rf(File.dirname(key_file)) rescue nil
     end
   end
+# Tự động tối ưu cấu hình electron-builder.yml để đạt tiêu chuẩn Apple Notarization
+def configure_electron_macos_signing!(workspace_dir)
+  builder_yml = File.join(workspace_dir, "electron-builder.yml")
+  builder_yaml = File.join(workspace_dir, "electron-builder.yaml")
+  target_file = File.exist?(builder_yml) ? builder_yml : (File.exist?(builder_yaml) ? builder_yaml : nil)
+
+  return unless target_file
+
+  require 'yaml'
+  begin
+    config = YAML.load_file(target_file) || {}
+    config["mac"] ||= {}
+    config["mac"]["hardenedRuntime"] = true
+    config["mac"]["gatekeeperAssess"] = false
+
+    entitlements_path = File.join(workspace_dir, "build", "entitlements.mac.plist")
+    if File.exist?(entitlements_path)
+      config["mac"]["entitlements"] ||= "build/entitlements.mac.plist"
+      config["mac"]["entitlementsInherit"] ||= "build/entitlements.mac.plist"
+    end
+
+    File.write(target_file, YAML.dump(config))
+    UI.success("🛠 Đã cấu hình electron-builder (hardenedRuntime=true, gatekeeperAssess=false, entitlements) chuẩn Notarization!")
+  rescue => e
+    UI.important("⚠️ Không thể cập nhật cấu hình electron-builder: #{e.message}")
+  end
 end
 
 platform :standalone do
@@ -291,6 +317,9 @@ platform :standalone do
 
     if is_electron_app?(app_info, workspace_dir)
       pkg_mgr = (app_info["package_manager"] || "npm").to_s.downcase
+
+      # Tự động tối ưu cấu hình electron-builder chuẩn Apple Notarization
+      configure_electron_macos_signing!(workspace_dir)
 
       node_modules = File.join(workspace_dir, "node_modules")
       unless File.directory?(node_modules)
