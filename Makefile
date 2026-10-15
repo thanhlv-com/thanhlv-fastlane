@@ -273,6 +273,20 @@ register-apps:
 
 register-identifiers: register-apps
 
+## Quản lý chứng chỉ Developer ID Application (macOS Standalone)
+dev-id-csr:
+	./scripts/manage_developer_id.sh create-csr $${DIR:-}
+
+dev-id-import:
+	@if [ -z "$(CER)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định file .cer: make dev-id-import CER=~/Downloads/developerID_application.cer [KEY=...]$(RESET)"; \
+		exit 1; \
+	fi
+	./scripts/manage_developer_id.sh import $(CER) $${KEY:-}
+
+dev-id-verify:
+	./scripts/manage_developer_id.sh verify
+
 # ==============================================================================
 # 4. BUILD & DEPLOY CÁC NỀN TẢNG
 # ==============================================================================

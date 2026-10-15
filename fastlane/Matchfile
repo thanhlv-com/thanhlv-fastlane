@@ -12,3 +12,6 @@ git_branch("master")
 
 # Cho phép clone shallow để tăng tốc độ CI
 shallow_clone(true)
+
+# Clone trực tiếp branch chỉ định để tránh hang pack-objects
+clone_branch_directly(true)
