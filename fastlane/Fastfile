@@ -124,6 +124,16 @@ lane :import_developer_id do |options|
   standalone_import_developer_id(options)
 end
 
+desc "Ký chứng chỉ Developer ID và công chứng (Notarize) file macOS có sẵn (.dmg, .app, .pkg)"
+lane :sign_file do |options|
+  standalone_sign_file(options)
+end
+
+desc "Đồng bộ chứng chỉ Developer ID Application từ kho Match Keystore vào Keychain local"
+lane :sync_dev_id do |options|
+  standalone_sync_dev_id(options)
+end
+
 # 2. Import các lane theo từng nền tảng
 import "lanes/ios.rb"
 import "lanes/macos.rb"

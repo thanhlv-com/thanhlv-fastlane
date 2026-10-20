@@ -50,10 +50,10 @@ def get_asc_api_key_file
   nil
 end
 
-# Tự động gửi file DMG/PKG lên Apple Notary Service và dán tem (Staple)
+# Tự động gửi file DMG/PKG/ZIP lên Apple Notary Service và dán tem (Staple)
 def notarize_macos_artifact(artifact_path, options = {})
   return false unless File.exist?(artifact_path)
-  return false unless artifact_path.end_with?(".dmg") || artifact_path.end_with?(".pkg")
+  return false unless artifact_path.end_with?(".dmg") || artifact_path.end_with?(".pkg") || artifact_path.end_with?(".zip")
 
   UI.message("🛡️ ========================================================")
   UI.message("🛡️ Bắt đầu quy trình Apple Notarization tự động cho macOS...")
@@ -82,17 +82,22 @@ def notarize_macos_artifact(artifact_path, options = {})
       UI.success("🎉 Apple Notarization THÀNH CÔNG! File đã được Apple quét và phê duyệt an toàn.")
 
       # 2. Dán tem (Staple) vào file
-      UI.message("📎 Đang dán tem phê duyệt Notarization vào file (xcrun stapler staple)...")
-      begin
-        staple_output = sh("xcrun stapler staple \"#{artifact_path}\"")
-        UI.message(staple_output)
-        if staple_output.include?("worked!")
-          UI.success("✅ Đã dán tem Notarization Ticket thành công vào #{File.basename(artifact_path)}!")
-        else
-          UI.message("ℹ️ Kết quả stapler: #{staple_output.strip}")
+      staple_target = options[:staple_target] || artifact_path
+      if staple_target.end_with?(".zip")
+        UI.message("ℹ️ File .zip đã được Apple phê duyệt Notarization (không cần staple trực tiếp vào zip).")
+      else
+        UI.message("📎 Đang dán tem phê duyệt Notarization vào file: #{File.basename(staple_target)}...")
+        begin
+          staple_output = sh("xcrun stapler staple \"#{staple_target}\"")
+          UI.message(staple_output)
+          if staple_output.include?("worked!")
+            UI.success("✅ Đã dán tem Notarization Ticket thành công vào #{File.basename(staple_target)}!")
+          else
+            UI.message("ℹ️ Kết quả stapler: #{staple_output.strip}")
+          end
+        rescue => e_staple
+          UI.important("⚠️ Không thể dán tem stapler: #{e_staple.message}. Ticket vẫn có giá trị trực tuyến trên server Apple.")
         end
-      rescue => e_staple
-        UI.important("⚠️ Không thể dán tem stapler: #{e_staple.message}. Ticket vẫn có giá trị trực tuyến trên server Apple.")
       end
       return true
     else
@@ -256,6 +261,124 @@ def log_keychain_and_signing_status(stage_name = "Debug")
     end
   end
   UI.message("🔍 ========================================================")
+end
+
+# Đảm bảo chứng chỉ Developer ID Application đã có trong Keychain máy (tự động đồng bộ Match nếu thiếu)
+def ensure_developer_id_certificate_in_keychain(bundle_id = "com.thanhlv.*", options = {})
+  return nil unless /darwin/ =~ RUBY_PLATFORM
+
+  check_identities = `security find-identity -v -p codesigning 2>/dev/null`
+  if check_identities.include?("Developer ID Application")
+    match_data = check_identities.match(/"(Developer ID Application: [^"]+)"/)
+    identity_name = match_data ? match_data[1] : "Developer ID Application"
+    UI.success("✅ Đã tìm thấy chứng chỉ Developer ID Application trong Keychain: #{identity_name}")
+    return identity_name
+  end
+
+  match_output_dir = Dir.mktmpdir("match_out_")
+  begin
+    api_key = get_api_key rescue nil
+    is_readonly = options[:readonly] != false && options[:readonly] != "false"
+
+    # 1. Tải Apple Intermediate & Root CAs để đảm bảo chuỗi chứng chỉ đầy đủ (tránh CSSMERR_TP_NOT_TRUSTED)
+    install_apple_intermediate_certificates!
+
+    # 2. Đồng bộ Developer ID Application Certificate qua Match
+    UI.message("🔑 Đang đồng bộ chứng chỉ Developer ID Application qua Match...")
+    match(
+      type: "developer_id",
+      platform: "macos",
+      app_identifier: bundle_id,
+      api_key: api_key,
+      readonly: is_readonly,
+      clone_branch_directly: true,
+      skip_provisioning_profiles: true,
+      output_path: match_output_dir
+    )
+    UI.success("🎉 Fastlane Match hoàn tất đồng bộ chứng chỉ Developer ID Application!")
+
+    # 3. Tự động khắc phục nếu Keychain chưa có Code Signing Identity (do file .p12 trên Keystore là bản cũ dạng PEM)
+    check_identities = `security find-identity -v -p codesigning 2>/dev/null`
+    if !check_identities.include?("Developer ID Application")
+      UI.important("⚠️ Không tìm thấy Developer ID Application trong Keychain sau bước Match. Đang kích hoạt tự phục hồi...")
+
+      candidate_p12s = Dir.glob(File.join(match_output_dir, "**", "*.{p12,P12,key,pem}"))
+      candidate_cers = Dir.glob(File.join(match_output_dir, "**", "*.{cer,CER,crt}"))
+
+      downloaded_p12 = candidate_p12s.uniq.select { |f| File.file?(f) && File.size?(f) }.first
+      downloaded_cer = candidate_cers.uniq.select { |f| File.file?(f) && File.size?(f) }.first
+
+      if downloaded_p12 && downloaded_cer
+        raw_key = File.binread(downloaded_p12) rescue "".b
+        if !raw_key.b.start_with?("\x30\x82".b) && !raw_key.b.include?("BEGIN".b)
+          cleaned = raw_key.to_s.gsub(/[\r\n\s]/, '')
+          decoded = Base64.decode64(cleaned).b rescue nil
+          if decoded && (decoded.start_with?("\x30\x82".b) || decoded.include?("BEGIN".b))
+            raw_key = decoded
+          end
+        end
+
+        work_dir = Dir.mktmpdir("recover_dev_id_")
+        begin
+          key_raw_file = File.join(work_dir, "key_raw.p12")
+          File.binwrite(key_raw_file, raw_key)
+          key_pem = File.join(work_dir, "key.pem")
+          legacy_flag = `openssl pkcs12 -help 2>&1`.include?("-legacy") ? "-legacy" : ""
+
+          key_extracted = false
+          if raw_key.include?("BEGIN".b)
+            key_match = raw_key.match(/(-----BEGIN [A-Z ]*PRIVATE KEY-----[^-]+-----END [A-Z ]*PRIVATE KEY-----)/m)
+            if key_match
+              File.write(key_pem, key_match[1])
+              key_extracted = true
+            else
+              File.binwrite(key_pem, raw_key)
+              key_extracted = true
+            end
+          else
+            passwords_to_try = [ENV["MATCH_PASSWORD"], "", ENV["P12_PASSWORD"]].compact.uniq
+            passwords_to_try.each do |pass|
+              ENV["RECOVER_PASS"] = pass
+              cmd = "openssl pkcs12 #{legacy_flag} -in \"#{key_raw_file}\" -nocerts -nodes -passin env:RECOVER_PASS -out \"#{key_pem}\" 2>/dev/null"
+              if system(cmd) && File.size?(key_pem)
+                key_extracted = true
+                break
+              end
+            end
+          end
+
+          key_rsa = File.join(work_dir, "key_rsa.pem")
+          system("openssl rsa -in \"#{key_pem}\" -out \"#{key_rsa}\" 2>/dev/null || cp \"#{key_pem}\" \"#{key_rsa}\"")
+
+          target_keychains = [
+            (ENV["MATCH_KEYCHAIN_NAME"] ? (FastlaneCore::Helper.keychain_path(ENV["MATCH_KEYCHAIN_NAME"]) rescue nil) : nil),
+            (FastlaneCore::Helper.keychain_path("fastlane_tmp_keychain") rescue nil),
+            (FastlaneCore::Helper.keychain_path("login.keychain") rescue nil)
+          ].compact.uniq.select { |p| File.exist?(p) }
+
+          target_keychains.each do |kc|
+            `security import "#{key_rsa}" -k "#{kc}" -P "" -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild -T /usr/bin/productsign 2>&1`
+            `security import "#{downloaded_cer}" -k "#{kc}" -P "" 2>&1`
+            kc_pass = ENV["MATCH_KEYCHAIN_PASSWORD"] || ""
+            `security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "#{kc_pass}" "#{kc}" 2>/dev/null`
+          end
+
+          UI.success("🎉 Đã hoàn tất tự phục hồi Developer ID Application vào Keychain!")
+        ensure
+          ENV.delete("RECOVER_PASS")
+          FileUtils.rm_rf(work_dir) if work_dir && File.exist?(work_dir)
+        end
+      end
+    end
+  rescue => e
+    UI.error("❌ Lỗi xảy ra trong quá trình đồng bộ Match Developer ID: #{e.class} - #{e.message}")
+  ensure
+    FileUtils.rm_rf(match_output_dir) if match_output_dir && File.exist?(match_output_dir)
+  end
+
+  final_check = `security find-identity -v -p codesigning 2>/dev/null`
+  match_data = final_check.match(/"(Developer ID Application: [^"]+)"/)
+  match_data ? match_data[1] : (final_check.include?("Developer ID Application") ? "Developer ID Application" : nil)
 end
 
 platform :standalone do
@@ -444,141 +567,8 @@ platform :standalone do
     # 2. Tải và cài đặt Certificates qua Match nếu không bỏ qua (chuẩn hóa tương tự macos.rb)
     skip_certs = options[:skip_certs] == true || options[:skip_certs] == "true"
     if !skip_certs
-      match_output_dir = Dir.mktmpdir("match_out_")
-      begin
-        api_key = get_api_key rescue nil
-        is_readonly = options[:readonly] != false && options[:readonly] != "false"
-
-        # Tải Apple Intermediate & Root CAs để đảm bảo chuỗi chứng chỉ đầy đủ (tránh CSSMERR_TP_NOT_TRUSTED trên CI)
-        install_apple_intermediate_certificates!
-
-        # Đồng bộ Developer ID Application Certificate qua Match
-        UI.message("🔑 Đang đồng bộ chứng chỉ Developer ID Application qua Match...")
-        match(
-          type: "developer_id",
-          platform: "macos",
-          app_identifier: bundle_id,
-          api_key: api_key,
-          readonly: is_readonly,
-          clone_branch_directly: true,
-          skip_provisioning_profiles: true,
-          output_path: match_output_dir
-        )
-        UI.success("🎉 Fastlane Match hoàn tất đồng bộ chứng chỉ Developer ID Application!")
-
-        # Tự động khắc phục nếu Keychain chưa có Code Signing Identity (do file .p12 trên Keystore là bản cũ dạng PEM)
-        check_identities = `security find-identity -v -p codesigning 2>/dev/null`
-        if !check_identities.include?("Developer ID Application")
-          UI.important("⚠️ Không tìm thấy Developer ID Application trong Keychain sau bước Match. Đang kích hoạt tự phục hồi...")
-
-          candidate_p12s = Dir.glob(File.join(match_output_dir, "**", "*.{p12,P12,key,pem}"))
-          candidate_cers = Dir.glob(File.join(match_output_dir, "**", "*.{cer,CER,crt}"))
-
-          UI.message("🔍 Files in match_output_dir: #{Dir.glob(File.join(match_output_dir, '**', '*'))}")
-
-          downloaded_p12 = candidate_p12s.uniq.select { |f| File.file?(f) && File.size?(f) }.first
-          downloaded_cer = candidate_cers.uniq.select { |f| File.file?(f) && File.size?(f) }.first
-
-          UI.message("🔍 Tìm thấy file key: #{downloaded_p12}")
-          UI.message("🔍 Tìm thấy file cert: #{downloaded_cer}")
-
-          if downloaded_p12 && downloaded_cer
-            raw_key = File.binread(downloaded_p12) rescue "".b
-            UI.message("🔍 Dung lượng key: #{raw_key.bytesize} bytes, 50 bytes đầu: #{raw_key[0..50].inspect}")
-
-            # 1. Tự động decode Base64 nếu file ở dạng text Base64
-            if !raw_key.b.start_with?("\x30\x82".b) && !raw_key.b.include?("BEGIN".b)
-              cleaned = raw_key.to_s.gsub(/[\r\n\s]/, '')
-              decoded = Base64.decode64(cleaned).b rescue nil
-              if decoded && (decoded.start_with?("\x30\x82".b) || decoded.include?("BEGIN".b))
-                UI.message("📦 Đã decode Base64 thành công về raw data!")
-                raw_key = decoded
-              end
-            end
-
-            work_dir = Dir.mktmpdir("recover_dev_id_")
-            begin
-              key_raw_file = File.join(work_dir, "key_raw.p12")
-              File.binwrite(key_raw_file, raw_key)
-              key_pem = File.join(work_dir, "key.pem")
-              fixed_p12 = File.join(work_dir, "fixed.p12")
-              legacy_flag = `openssl pkcs12 -help 2>&1`.include?("-legacy") ? "-legacy" : ""
-
-              # 2. Trích xuất Private Key về file PEM chuẩn
-              key_extracted = false
-              if raw_key.include?("BEGIN".b)
-                UI.message("📄 Định dạng key là text PEM. Đang trích xuất Private Key...")
-                key_match = raw_key.match(/(-----BEGIN [A-Z ]*PRIVATE KEY-----[^-]+-----END [A-Z ]*PRIVATE KEY-----)/m)
-                if key_match
-                  File.write(key_pem, key_match[1])
-                  key_extracted = true
-                else
-                  File.binwrite(key_pem, raw_key)
-                  key_extracted = true
-                end
-              else
-                UI.message("🔐 Định dạng key là binary PKCS#12. Đang giải mã Private Key...")
-                passwords_to_try = [ENV["MATCH_PASSWORD"], "", ENV["P12_PASSWORD"]].compact.uniq
-                passwords_to_try.each do |pass|
-                  ENV["RECOVER_PASS"] = pass
-                  cmd = "openssl pkcs12 #{legacy_flag} -in \"#{key_raw_file}\" -nocerts -nodes -passin env:RECOVER_PASS -out \"#{key_pem}\" 2>/dev/null"
-                  if system(cmd) && File.size?(key_pem)
-                    key_extracted = true
-                    break
-                  end
-                end
-              end
-
-              # Chuyển private key sang chuẩn RSA thuần túy
-              key_rsa = File.join(work_dir, "key_rsa.pem")
-              system("openssl rsa -in \"#{key_pem}\" -out \"#{key_rsa}\" 2>/dev/null || cp \"#{key_pem}\" \"#{key_rsa}\"")
-
-              # Chuyển cert sang PEM nếu đang là DER (.cer)
-              cer_pem = File.join(work_dir, "cert.pem")
-              system("openssl x509 -inform der -in \"#{downloaded_cer}\" -out \"#{cer_pem}\" 2>/dev/null || cp \"#{downloaded_cer}\" \"#{cer_pem}\"")
-
-              # 3. Nạp trực tiếp Private Key (dạng PEM) và Certificate vào Keychain
-              target_keychains = [
-                (ENV["MATCH_KEYCHAIN_NAME"] ? (FastlaneCore::Helper.keychain_path(ENV["MATCH_KEYCHAIN_NAME"]) rescue nil) : nil),
-                (FastlaneCore::Helper.keychain_path("fastlane_tmp_keychain") rescue nil),
-                (FastlaneCore::Helper.keychain_path("login.keychain") rescue nil)
-              ].compact.uniq.select { |p| File.exist?(p) }
-
-              target_keychains.each do |kc|
-                UI.message("🔑 Đang nạp Private Key và Certificate vào Keychain: #{kc}...")
-                sh_key = `security import "#{key_rsa}" -k "#{kc}" -P "" -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild -T /usr/bin/productsign 2>&1`
-                UI.message("   ↳ security import (key): #{sh_key.strip}") unless sh_key.strip.empty?
-
-                if File.exist?(downloaded_cer)
-                  sh_cer = `security import "#{downloaded_cer}" -k "#{kc}" -P "" 2>&1`
-                  UI.message("   ↳ security import (cert): #{sh_cer.strip}") unless sh_cer.strip.empty?
-                end
-
-                # Cấp quyền codesign partition list tránh bị hỏi mật khẩu khi ký
-                kc_pass = ENV["MATCH_KEYCHAIN_PASSWORD"] || ""
-                `security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "#{kc_pass}" "#{kc}" 2>/dev/null`
-              end
-
-              UI.success("🎉 Đã hoàn tất tự phục hồi Developer ID Application vào Keychain!")
-            ensure
-              ENV.delete("RECOVER_PASS")
-              FileUtils.rm_rf(work_dir) if work_dir && File.exist?(work_dir)
-            end
-          else
-            UI.error("❌ Không tìm thấy file key/cert nào trên hệ thống để tự phục hồi!")
-          end
-        end
-      rescue => e
-        UI.error("❌ Lỗi xảy ra trong quá trình chạy Match Developer ID: #{e.class} - #{e.message}")
-        UI.error("❌ Chi tiết Backtrace:\n#{e.backtrace.first(8).join("\n")}") if e.backtrace
-        UI.important("⚠️ Sẽ tiếp tục tiến trình nếu chứng chỉ đã có sẵn trên máy...")
-      ensure
-        FileUtils.rm_rf(match_output_dir) if match_output_dir && File.exist?(match_output_dir)
-      end
-
-      ENV["CSC_NAME"] = "Developer ID Application"
-
-      # Log kiểm tra sau khi chạy Match
+      identity = ensure_developer_id_certificate_in_keychain(bundle_id, options)
+      ENV["CSC_NAME"] = identity || "Developer ID Application"
       log_keychain_and_signing_status("2. SAU KHI ĐỒNG BỘ MATCH")
     else
       UI.message("ℹ️ Bỏ qua bước đồng bộ chứng chỉ do skip_certs: true")
@@ -776,6 +766,113 @@ platform :standalone do
       UI.success("🎉 Build Flutter Linux thành công tại: #{output_dir}")
       next output_dir
     end
+  end
+
+  desc "Đồng bộ chứng chỉ Developer ID Application từ kho Match Keystore vào Keychain local"
+  lane :sync_dev_id do |options|
+    app_key = options[:app] || "web-clone"
+    app_info = get_app_config(app_key) rescue {}
+    bundle_id = resolve_bundle_id(app_info, "macos", options) rescue "com.thanhlv.*"
+    identity = ensure_developer_id_certificate_in_keychain(bundle_id, options)
+    if identity
+      UI.success("🎉 Chứng chỉ Developer ID Application sẵn sàng trong Keychain: #{identity}")
+      identity
+    else
+      UI.user_error!("❌ Không thể cài đặt chứng chỉ Developer ID Application vào Keychain.")
+    end
+  end
+
+  desc "Ký chứng chỉ Developer ID và công chứng (Notarize + Staple) file macOS có sẵn (.dmg, .app, .pkg)"
+  lane :sign_file do |options|
+    file_path = options[:file] || options[:path] || UI.user_error!("Vui lòng chỉ định đường dẫn file: fastlane standalone sign_file file:<đường_dẫn>")
+    file_path = File.expand_path(file_path)
+    UI.user_error!("Không tìm thấy file: #{file_path}") unless File.exist?(file_path)
+
+    # 1. Tìm hoặc đồng bộ Identity Developer ID Application
+    identity = options[:identity] || ensure_developer_id_certificate_in_keychain("com.thanhlv.*", options)
+    unless identity
+      UI.user_error!("❌ Không tìm thấy chứng chỉ Developer ID Application hợp lệ trong Keychain!")
+    end
+    UI.message("🔑 Sử dụng Code Signing Identity: #{identity}")
+
+    # 2. Thực hiện ký file
+    if File.directory?(file_path) && file_path.end_with?(".app")
+      UI.message("✍️ Đang ký gói ứng dụng (.app): #{file_path}")
+      frameworks_dir = File.join(file_path, "Contents", "Frameworks")
+      if File.directory?(frameworks_dir)
+        Dir.glob(File.join(frameworks_dir, "*.app")).each do |helper_app|
+          sh("codesign --force --timestamp --options runtime --sign \"#{identity}\" \"#{helper_app}\"") rescue nil
+        end
+        Dir.glob(File.join(frameworks_dir, "*.framework")).each do |fw|
+          sh("codesign --force --timestamp --options runtime --sign \"#{identity}\" \"#{fw}\"") rescue nil
+        end
+        Dir.glob(File.join(frameworks_dir, "*.dylib")).each do |dylib|
+          sh("codesign --force --timestamp --options runtime --sign \"#{identity}\" \"#{dylib}\"") rescue nil
+        end
+      end
+
+      ent_candidates = [
+        options[:entitlements],
+        File.join(File.dirname(file_path), "..", "build", "entitlements.mac.plist"),
+        File.join(File.dirname(file_path), "entitlements.mac.plist"),
+        File.join(File.dirname(file_path), "build", "entitlements.mac.plist")
+      ].compact
+      found_ent = ent_candidates.find { |e| File.exist?(e) }
+      ent_flag = found_ent ? "--entitlements \"#{found_ent}\"" : ""
+
+      sh("codesign --force --timestamp --options runtime #{ent_flag} --sign \"#{identity}\" \"#{file_path}\"")
+      sh("codesign --verify --deep --strict --verbose=2 \"#{file_path}\"")
+      UI.success("✅ Đã ký .app thành công!")
+    elsif file_path.end_with?(".dmg")
+      UI.message("✍️ Đang ký file DMG: #{file_path}")
+      sh("codesign --force --timestamp --sign \"#{identity}\" \"#{file_path}\"")
+      sh("codesign --verify --verbose=2 \"#{file_path}\"")
+      UI.success("✅ Đã ký .dmg thành công!")
+    elsif file_path.end_with?(".pkg")
+      UI.message("✍️ Đang kiểm tra / ký file PKG...")
+      identities_output = `security find-identity -v -p codesigning 2>/dev/null`
+      installer_match = identities_output.match(/"(Developer ID Installer: [^"]+)"/)
+      if installer_match
+        signed_pkg = file_path.sub(/\.pkg$/, "_signed.pkg")
+        sh("productsign --sign \"#{installer_match[1]}\" \"#{file_path}\" \"#{signed_pkg}\"")
+        FileUtils.mv(signed_pkg, file_path)
+        UI.success("✅ Đã ký .pkg bằng Developer ID Installer!")
+      else
+        UI.important("⚠️ Không tìm thấy Developer ID Installer trong Keychain. Bỏ qua productsign.")
+      end
+    else
+      UI.user_error!("Định dạng file không được hỗ trợ để ký macOS (chỉ hỗ trợ .dmg, .app, .pkg)")
+    end
+
+    # 3. Apple Notarization & Staple
+    should_notarize = options[:notarize] != false && options[:notarize] != "false"
+    if should_notarize
+      if file_path.end_with?(".dmg") || file_path.end_with?(".pkg")
+        notarize_macos_artifact(file_path, options)
+      elsif file_path.end_with?(".app")
+        UI.message("📦 Đang nén .app thành .zip tạm thời để gửi Apple Notary Service...")
+        zip_path = "#{file_path}.zip"
+        sh("ditto -c -k --keepParent \"#{file_path}\" \"#{zip_path}\"")
+        begin
+          if notarize_macos_artifact(zip_path, options.merge(staple_target: file_path))
+            sh("xcrun stapler staple \"#{file_path}\"") rescue nil
+          end
+        ensure
+          FileUtils.rm_f(zip_path)
+        end
+      end
+
+      # 4. Kiểm tra Gatekeeper
+      UI.message("🔍 Kiểm tra trạng thái Gatekeeper sau công chứng...")
+      if file_path.end_with?(".app")
+        sh("spctl --assess --type execute --verbose \"#{file_path}\"") rescue nil
+      elsif file_path.end_with?(".dmg")
+        sh("spctl --assess --type open --context context:primary-signature --verbose \"#{file_path}\"") rescue nil
+      end
+    end
+
+    UI.success("🎉 Hoàn tất quy trình ký và công chứng cho: #{File.basename(file_path)}")
+    file_path
   end
 
   desc "Dispatcher tự động điều hướng build Standalone theo platform (platform: all|macos|windows|linux)"
