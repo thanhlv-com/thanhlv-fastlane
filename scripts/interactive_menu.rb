@@ -37,28 +37,30 @@ class InteractiveMenu
       puts "#{BOLD}👉 Chọn thao tác bạn muốn thực hiện:#{RESET}"
       puts "  #{GREEN}1)#{RESET} 🚀 Deploy App (iOS TestFlight/AppStore, macOS, Android Play Store)"
       puts "  #{GREEN}2)#{RESET} 🔨 Build App (iOS IPA, macOS PKG, Android AAB/APK)"
-      puts "  #{GREEN}3)#{RESET} 📥 Pull Metadata & Screenshots (Từ Store về Local để sửa)"
-      puts "  #{GREEN}4)#{RESET} 📤 Push Metadata & Screenshots (Từ Local lên Store)"
-      puts "  #{GREEN}5)#{RESET} 📝 Khởi tạo thư mục Metadata template mẫu (Init)"
-      puts "  #{GREEN}6)#{RESET} 🔑 Quản lý Certificates & API Keys (Match, Apple & Google Play)"
-      puts "  #{GREEN}7)#{RESET} 📦 Quản lý Workspace (Clone / Update source code)"
-      puts "  #{GREEN}8)#{RESET} 🎯 Đồng bộ GitHub Actions Workflows (Sync Choices)"
-      puts "  #{GREEN}9)#{RESET} 🔍 Kiểm tra toàn diện hệ thống (Check All)"
+      puts "  #{GREEN}3)#{RESET} ✍️  Ký & Công chứng file macOS có sẵn (Sign & Notarize .dmg / .app / .pkg)"
+      puts "  #{GREEN}4)#{RESET} 📥 Pull Metadata & Screenshots (Từ Store về Local để sửa)"
+      puts "  #{GREEN}5)#{RESET} 📤 Push Metadata & Screenshots (Từ Local lên Store)"
+      puts "  #{GREEN}6)#{RESET} 📝 Khởi tạo thư mục Metadata template mẫu (Init)"
+      puts "  #{GREEN}7)#{RESET} 🔑 Quản lý Certificates & API Keys (Match, Apple & Google Play)"
+      puts "  #{GREEN}8)#{RESET} 📦 Quản lý Workspace (Clone / Update source code)"
+      puts "  #{GREEN}9)#{RESET} 🎯 Đồng bộ GitHub Actions Workflows (Sync Choices)"
+      puts "  #{GREEN}10)#{RESET} 🔍 Kiểm tra toàn diện hệ thống (Check All)"
       puts "  #{RED}0)#{RESET} ❌ Thoát"
       puts ""
 
-      choice = prompt_input("Nhập lựa chọn của bạn [0-9]", "0")
+      choice = prompt_input("Nhập lựa chọn của bạn [0-10]", "0")
 
       case choice
       when "1" then handle_deploy
       when "2" then handle_build
-      when "3" then handle_metadata_pull
-      when "4" then handle_metadata_push
-      when "5" then handle_metadata_init
-      when "6" then handle_sync_certs
-      when "7" then handle_prepare_workspace
-      when "8" then execute_command("make sync-workflows")
-      when "9" then execute_command("make check-all")
+      when "3" then handle_sign_file
+      when "4" then handle_metadata_pull
+      when "5" then handle_metadata_push
+      when "6" then handle_metadata_init
+      when "7" then handle_sync_certs
+      when "8" then handle_prepare_workspace
+      when "9" then execute_command("make sync-workflows")
+      when "10" then execute_command("make check-all")
       when "0", "q", "exit"
         puts "\n#{GREEN}Tạm biệt! Hẹn gặp lại bạn. 👋#{RESET}\n"
         exit 0
@@ -262,10 +264,14 @@ class InteractiveMenu
     when "macos"
       target_choice = prompt_choice("Chọn Mục Tiêu Build macOS", [
         { label: "📦 Standalone (Build & Ký DMG - Phân phối ngoài, không push Store)", value: "standalone" },
-        { label: "🏪 Mac App Store (Build & Ký PKG - Sẵn sàng cho App Store / TestFlight)", value: "appstore" }
+        { label: "🏪 Mac App Store (Build & Ký PKG - Sẵn sàng cho App Store / TestFlight)", value: "appstore" },
+        { label: "✍️  Ký & Công chứng file build sẵn (Sign & Notarize .dmg / .app)", value: "sign_file" }
       ])
       if target_choice == "standalone"
         cmd = "make standalone-mac APP=#{app_key}"
+      elsif target_choice == "sign_file"
+        handle_sign_file
+        return
       else
         cmd = "make mac-build APP=#{app_key} OBFUSCATE=#{obfuscate}"
       end
@@ -281,7 +287,55 @@ class InteractiveMenu
   end
 
   # ============================================================================
-  # 3. PULL METADATA
+  # 3. SIGN & NOTARIZE PRE-BUILT FILE
+  # ============================================================================
+
+  def handle_sign_file
+    clear_screen
+    puts "#{BOLD}#{CYAN}====================================================================#{RESET}"
+    puts "#{BOLD}#{CYAN}    ✍️  KÝ VÀ CÔNG CHỨNG (SIGN & NOTARIZE) FILE MACOS BUILD SẴN     #{RESET}"
+    puts "#{BOLD}#{CYAN}====================================================================#{RESET}"
+    puts "#{DIM}  💡 Hỗ trợ: .dmg, .app, .pkg (Tự động ký Developer ID + Apple Notary + Staple)#{RESET}\n"
+
+    # Tự động quét các file .dmg, .app, .pkg có sẵn trong workspace
+    candidate_files = Dir.glob(File.expand_path(File.join(__dir__, '..', '.workspace_code', '*', 'dist', '*.dmg'))) +
+                      Dir.glob(File.expand_path(File.join(__dir__, '..', '.workspace_code', '*', 'dist', 'mac*', '*.app'))) +
+                      Dir.glob(File.expand_path(File.join(__dir__, '..', 'build_output', '*.dmg'))) +
+                      Dir.glob(File.expand_path(File.join(__dir__, '..', 'build_output', '*.app')))
+    candidate_files = candidate_files.select { |f| File.exist?(f) }.uniq
+
+    default_file = candidate_files.first || ""
+    if candidate_files.any?
+      puts "#{YELLOW}🔍 Tìm thấy các file build sẵn trong thư mục dự án:#{RESET}"
+      candidate_files.each_with_index do |f, idx|
+        puts "  #{GREEN}#{idx + 1})#{RESET} #{f}"
+      end
+      puts ""
+    end
+
+    file_path = prompt_input("Nhập đường dẫn file cần ký (.dmg / .app / .pkg)", default_file)
+    if file_path.nil? || file_path.to_s.strip.empty?
+      puts "#{RED}⚠️ Bạn chưa nhập đường dẫn file. Đã huỷ thao tác.#{RESET}"
+      prompt_input("Nhấn Enter để quay lại...")
+      return
+    end
+
+    file_path = File.expand_path(file_path.strip)
+
+    unless File.exist?(file_path)
+      puts "#{RED}❌ Không tìm thấy file tại đường dẫn: #{file_path}#{RESET}"
+      prompt_input("Nhấn Enter để quay lại...")
+      return
+    end
+
+    notarize = prompt_confirm("Tự động gửi công chứng lên Apple (Notarize) và dán tem (Staple)?", true)
+
+    cmd = "make sign-file FILE=\"#{file_path}\" NOTARIZE=#{notarize}"
+    execute_command(cmd)
+  end
+
+  # ============================================================================
+  # 5. PULL METADATA
   # ============================================================================
 
   def handle_metadata_pull
@@ -307,7 +361,7 @@ class InteractiveMenu
   end
 
   # ============================================================================
-  # 4. PUSH METADATA
+  # 6. PUSH METADATA
   # ============================================================================
 
   def handle_metadata_push
@@ -347,7 +401,7 @@ class InteractiveMenu
   end
 
   # ============================================================================
-  # 5. INIT METADATA
+  # 7. INIT METADATA
   # ============================================================================
 
   def handle_metadata_init
@@ -368,7 +422,7 @@ class InteractiveMenu
   end
 
   # ============================================================================
-  # 6. SYNC CERTS (MATCH)
+  # 8. SYNC CERTS (MATCH)
   # ============================================================================
 
   def handle_sync_certs
@@ -376,6 +430,7 @@ class InteractiveMenu
       { label: "🆔 Kiểm tra & Đăng ký Apple Identifiers (Dev Portal) & Kiểm tra App Store Connect", value: "register_apple" },
       { label: "🍎 Đồng bộ Certificates iOS qua Match", value: "sync_ios" },
       { label: "💻 Đồng bộ Certificates macOS qua Match", value: "sync_mac" },
+      { label: "🔑 Đồng bộ Developer ID Application Certificate (macOS Standalone)", value: "sync_dev_id" },
       { label: "🍏 Mã hoá và Push App Store Connect API Key (Apple .p8) lên Match Git", value: "push_apple_key" },
       { label: "📥 Pull và giải mã App Store Connect API Key (Apple .p8) từ Match Git", value: "pull_apple_key" },
       { label: "🤖 Mã hoá và Push Google Play JSON Key (AOS .json) lên Match Git", value: "push_google_key" },
@@ -386,6 +441,13 @@ class InteractiveMenu
     case action
     when "register_apple"
       handle_register_apple_apps
+
+    when "sync_dev_id"
+      app_key = select_app("macos", true)
+      return unless app_key
+      app_arg = (app_key == "all") ? "" : " APP=#{app_key}"
+      cmd = "make sync-dev-id#{app_arg}"
+      execute_command(cmd)
 
     when "sync_ios", "sync_mac"
       platform = (action == "sync_mac") ? "mac" : "ios"

@@ -9,6 +9,7 @@
         prepare-workspace clean-workspace \
         clean-certs clean-profiles push-api-key pull-api-key push-google-key pull-google-key sync-certs-ios sync-certs-mac register-app-ios register-app-mac register-apps register-identifiers register-identifier-ios register-identifier-mac \
         ios-build ios-deploy mac-build mac-deploy aos-build aos-deploy windows-build linux-build \
+        standalone-mac standalone-win standalone-linux standalone-build standalone-all sign-file sync-dev-id \
         metadata-init metadata-pull metadata-push \
         ios-metadata-pull ios-metadata-push ios-metadata-download ios-metadata-upload \
         mac-metadata-pull mac-metadata-push mac-metadata-download mac-metadata-upload \
@@ -132,6 +133,10 @@ help:
 	@echo "      Build Linux Standalone (.AppImage / .deb) không qua App Store."
 	@echo "  $(GREEN)make standalone-all APP=<app_key>$(RESET)"
 	@echo "      Build tất cả các nền tảng Standalone (macOS, Windows, Linux) cùng lúc."
+	@echo "  $(GREEN)make sign-file FILE=<path_to_dmg_or_app> [NOTARIZE=true]$(RESET)"
+	@echo "      Ký Developer ID & Công chứng Apple Notarization (+ Staple) cho file build sẵn."
+	@echo "  $(GREEN)make sync-dev-id [APP=web-clone] [READONLY=true]$(RESET)"
+	@echo "      Đồng bộ chứng chỉ Developer ID Application từ Match Keystore về Keychain local."
 	@echo ""
 	@echo "$(BOLD)$(CYAN)====================================================================$(RESET)"
 	@echo ""
@@ -393,6 +398,18 @@ mac-standalone: standalone-mac
 win-standalone: standalone-win
 linux-standalone: standalone-linux
 all-standalone: standalone-all
+
+## Ký chứng chỉ Developer ID và công chứng (Apple Notary + Staple) cho file build sẵn (.dmg, .app, .pkg)
+sign-file:
+	@if [ -z "$(FILE)" ]; then \
+		echo "$(RED)❌ Vui lòng chỉ định đường dẫn file: make sign-file FILE=path/to/your-app.dmg [NOTARIZE=true]$(RESET)"; \
+		exit 1; \
+	fi
+	fastlane sign_file file:$(FILE) notarize:$${NOTARIZE:-true}
+
+## Đồng bộ chứng chỉ Developer ID Application từ Match Keystore về Keychain local
+sync-dev-id:
+	fastlane sync_dev_id app:$${APP:-web-clone} readonly:$${READONLY:-true}
 
 # ==============================================================================
 # 5. QUẢN LÝ & ĐỒNG BỘ 2 CHIỀU METADATA (PULL & PUSH)

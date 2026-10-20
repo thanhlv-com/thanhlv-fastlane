@@ -133,6 +133,22 @@ Kiểm tra và đăng ký Apple Identifiers & Apps (alias: register_apps)
 
 Import chứng chỉ Developer ID Application (.p12) vào apple-certificates-keystore (alias: standalone import_developer_id)
 
+### sign_file
+
+```sh
+[bundle exec] fastlane sign_file
+```
+
+Ký chứng chỉ Developer ID và công chứng (Notarize) file macOS có sẵn (.dmg, .app, .pkg)
+
+### sync_dev_id
+
+```sh
+[bundle exec] fastlane sync_dev_id
+```
+
+Đồng bộ chứng chỉ Developer ID Application từ kho Match Keystore vào Keychain local
+
 ----
 
 
@@ -583,6 +599,22 @@ Build ứng dụng Desktop Standalone cho Windows (.exe)
 ```
 
 Build ứng dụng Desktop Standalone cho Linux (.AppImage / .deb)
+
+### standalone sync_dev_id
+
+```sh
+[bundle exec] fastlane standalone sync_dev_id
+```
+
+Đồng bộ chứng chỉ Developer ID Application từ kho Match Keystore vào Keychain local
+
+### standalone sign_file
+
+```sh
+[bundle exec] fastlane standalone sign_file
+```
+
+Ký chứng chỉ Developer ID và công chứng (Notarize + Staple) file macOS có sẵn (.dmg, .app, .pkg)
 
 ### standalone build
 
