@@ -577,6 +577,9 @@ platform :standalone do
     if is_electron_app?(app_info, workspace_dir)
       pkg_mgr = (app_info["package_manager"] || "npm").to_s.downcase
 
+      # Tự động đồng bộ version vào package.json của ứng dụng
+      configure_electron_version!(workspace_dir, version_name, build_number)
+
       # Tự động tối ưu cấu hình electron-builder chuẩn Apple Notarization
       configure_electron_macos_signing!(workspace_dir)
 
@@ -590,12 +593,14 @@ platform :standalone do
       pkg_json = JSON.parse(File.read(package_json_path)) rescue {}
       scripts = pkg_json["scripts"] || {}
 
+      version_arg = (version_name && !version_name.empty?) ? " -c.extraMetadata.version=#{version_name}" : ""
+
       build_cmd = if scripts["build:mac"]
-                    "#{pkg_mgr} run build:mac"
+                    "#{pkg_mgr} run build:mac --#{version_arg}"
                   elsif scripts["build"]
-                    "#{pkg_mgr} run build && npx electron-builder --mac"
+                    "#{pkg_mgr} run build && npx electron-builder --mac#{version_arg}"
                   else
-                    "npx electron-builder --mac"
+                    "npx electron-builder --mac#{version_arg}"
                   end
 
       # Log kiểm tra ngay trước khi build electron
@@ -657,6 +662,9 @@ platform :standalone do
     if is_electron_app?(app_info, workspace_dir)
       pkg_mgr = (app_info["package_manager"] || "npm").to_s.downcase
 
+      # Tự động đồng bộ version vào package.json của ứng dụng
+      configure_electron_version!(workspace_dir, version_name, build_number)
+
       node_modules = File.join(workspace_dir, "node_modules")
       unless File.directory?(node_modules)
         UI.message("📦 Cài đặt dependencies: #{pkg_mgr} install...")
@@ -667,12 +675,14 @@ platform :standalone do
       pkg_json = JSON.parse(File.read(package_json_path)) rescue {}
       scripts = pkg_json["scripts"] || {}
 
+      version_arg = (version_name && !version_name.empty?) ? " -c.extraMetadata.version=#{version_name}" : ""
+
       build_cmd = if scripts["build:win"]
-                    "#{pkg_mgr} run build:win"
+                    "#{pkg_mgr} run build:win --#{version_arg}"
                   elsif scripts["build"]
-                    "#{pkg_mgr} run build && npx electron-builder --win"
+                    "#{pkg_mgr} run build && npx electron-builder --win#{version_arg}"
                   else
-                    "npx electron-builder --win"
+                    "npx electron-builder --win#{version_arg}"
                   end
 
       UI.message("🛠 Đang đóng gói Electron Windows Standalone: #{build_cmd}")
@@ -721,6 +731,9 @@ platform :standalone do
     if is_electron_app?(app_info, workspace_dir)
       pkg_mgr = (app_info["package_manager"] || "npm").to_s.downcase
 
+      # Tự động đồng bộ version vào package.json của ứng dụng
+      configure_electron_version!(workspace_dir, version_name, build_number)
+
       node_modules = File.join(workspace_dir, "node_modules")
       unless File.directory?(node_modules)
         UI.message("📦 Cài đặt dependencies: #{pkg_mgr} install...")
@@ -731,12 +744,14 @@ platform :standalone do
       pkg_json = JSON.parse(File.read(package_json_path)) rescue {}
       scripts = pkg_json["scripts"] || {}
 
+      version_arg = (version_name && !version_name.empty?) ? " -c.extraMetadata.version=#{version_name}" : ""
+
       build_cmd = if scripts["build:linux"]
-                    "#{pkg_mgr} run build:linux"
+                    "#{pkg_mgr} run build:linux --#{version_arg}"
                   elsif scripts["build"]
-                    "#{pkg_mgr} run build && npx electron-builder --linux"
+                    "#{pkg_mgr} run build && npx electron-builder --linux#{version_arg}"
                   else
-                    "npx electron-builder --linux"
+                    "npx electron-builder --linux#{version_arg}"
                   end
 
       UI.message("🛠 Đang đóng gói Electron Linux Standalone: #{build_cmd}")
