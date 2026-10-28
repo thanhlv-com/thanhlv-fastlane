@@ -26,7 +26,7 @@
 - [x] Workspace Detection
 - [x] Reverse Engineering
 - [x] Requirements Analysis
-- [ ] User Stories
+- [x] User Stories
 - [ ] Workflow Planning
 - [ ] Application Design
 - [ ] Units Generation
