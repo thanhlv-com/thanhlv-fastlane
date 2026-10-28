@@ -42,7 +42,7 @@ on:
         default: true
         type: boolean
       release:
-        description: "Create GitHub Release and upload built standalone packages"
+        description: "Tạo GitHub Release và tải lên các file build thành công"
         required: false
         default: false
         type: boolean
