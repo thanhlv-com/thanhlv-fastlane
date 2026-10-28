@@ -270,8 +270,8 @@ jobs:
           rm -rf build_output && mkdir -p build_output
           shopt -s nullglob 2>/dev/null || true
           cp -f .workspace_code/*/dist/*.dmg build_output/ 2>/dev/null || true
-          if [ -d .workspace_code ]; then
-            find .workspace_code -type f -name "*.dmg" -exec cp -f {} build_output/ \; 2>/dev/null || true
+          if [ $(ls -1 build_output/*.dmg 2>/dev/null | wc -l) -eq 0 ] && [ -d .workspace_code ]; then
+            find .workspace_code -type d \( -name "node_modules" -o -name ".*" -o -name "*unpacked*" \) -prune -o -type f -name "*.dmg" -exec cp -f {} build_output/ \; 2>/dev/null || true
           fi
           echo "📦 Danh sách file trong build_output:"
           ls -la build_output/
@@ -371,8 +371,8 @@ jobs:
           rm -rf build_output && mkdir -p build_output
           shopt -s nullglob 2>/dev/null || true
           cp -f .workspace_code/*/dist/*.exe build_output/ 2>/dev/null || true
-          if [ -d .workspace_code ]; then
-            find .workspace_code -type f -name "*.exe" -exec cp -f {} build_output/ \; 2>/dev/null || true
+          if [ $(ls -1 build_output/*.exe 2>/dev/null | wc -l) -eq 0 ] && [ -d .workspace_code ]; then
+            find .workspace_code -type d \( -name "node_modules" -o -name ".*" -o -name "*unpacked*" \) -prune -o -type f -name "*.exe" -exec cp -f {} build_output/ \; 2>/dev/null || true
           fi
           echo "📦 Danh sách file trong build_output:"
           ls -la build_output/
@@ -468,8 +468,8 @@ jobs:
           rm -rf build_output && mkdir -p build_output
           shopt -s nullglob 2>/dev/null || true
           cp -f .workspace_code/*/dist/*.AppImage build_output/ 2>/dev/null || true
-          if [ -d .workspace_code ]; then
-            find .workspace_code -type f -name "*.AppImage" -exec cp -f {} build_output/ \; 2>/dev/null || true
+          if [ $(ls -1 build_output/*.AppImage 2>/dev/null | wc -l) -eq 0 ] && [ -d .workspace_code ]; then
+            find .workspace_code -type d \( -name "node_modules" -o -name ".*" -o -name "*unpacked*" \) -prune -o -type f -name "*.AppImage" -exec cp -f {} build_output/ \; 2>/dev/null || true
           fi
           echo "📦 Danh sách file trong build_output:"
           ls -la build_output/
@@ -543,7 +543,18 @@ jobs:
         id: assets
         run: |
           mkdir -p release_assets
-          find ./downloaded_artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" \) -exec cp -f {} release_assets/ \;
+          # Chỉ copy các file sản phẩm cuối, loại bỏ các file tool nội bộ nếu có
+          find ./downloaded_artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" \) | while read -r file; do
+            filename=$(basename "$file")
+            case "$filename" in
+              7z*|candle.exe|light.exe|nuget.exe|elevate.exe|rcedit.exe|signtool.exe|esbuild.exe|electron.exe|*Mono*.exe|StubExecutable.exe|WriteZipToSetup.exe|SyncReleases.exe|Squirrel.exe|Setup.exe)
+                echo "⚠️ Bỏ qua file tool nội bộ: $filename"
+                ;;
+              *)
+                cp -f "$file" release_assets/
+                ;;
+            esac
+          done
           echo "📦 Danh sách file đính kèm bản release:"
           ls -lh release_assets/
           ASSET_COUNT=$(ls -1 release_assets/ 2>/dev/null | wc -l | tr -d ' ')
