@@ -28,6 +28,6 @@
 - [x] Requirements Analysis
 - [x] User Stories
 - [x] Workflow Planning
-- [ ] Application Design
+- [x] Application Design
 - [ ] Units Generation
 - [ ] Detailed Design Baseline
