@@ -587,8 +587,7 @@ jobs:
           - **Version**: \`$VERSION\`
           - **Release Tag**: \`$RELEASE_TAG\`
           - **Build Platform**: \`${{ inputs.platform }}\`
-          - **Commit**: \`${{ github.sha }}\`
-          - **Workflow Run**: [View on GitHub Actions](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          - **Commit**: \`${{ github.sha }}\`"
 
           echo "🚀 Creating GitHub Release on $TARGET_REPO with tag $RELEASE_TAG..."
           gh release create "$RELEASE_TAG" ./release_assets/* \
