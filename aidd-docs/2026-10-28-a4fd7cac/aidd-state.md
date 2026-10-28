@@ -5,7 +5,8 @@
 - **Project Type**: Brownfield
 - **Execution Mode**: Autonomous
 - **Start Date**: 2026-10-28T20:41:00+07:00
-- **Current Stage**: INCEPTION - Completed (Ready for CONSTRUCTION Phase)
+- **Current Phase**: CONSTRUCTION
+- **Current Stage**: CONSTRUCTION - Unit 1: Functional Design
 
 ## Workspace State
 - **Existing Code**: Yes
@@ -31,3 +32,15 @@
 - [x] Application Design
 - [x] Units Generation
 - [x] Detailed Design Baseline
+
+### 🟢 CONSTRUCTION PHASE
+#### Unit 1: uow-preflight-resolver
+- [x] Functional Design
+- [ ] Code Generation
+
+#### Unit 2: uow-release-publisher
+- [ ] Functional Design
+- [ ] Code Generation
+
+#### Integration
+- [ ] Build and Test
