@@ -226,6 +226,7 @@
     "git_url": "git@github.com:thanhlv-com/web-clone.git",
     "branch": "main",
     "framework": "electron",
+    "release_download": "git@github.com:Web-Clone-app/download.git",
     "package_manager": "npm",
     "platforms": [
       "macos",
