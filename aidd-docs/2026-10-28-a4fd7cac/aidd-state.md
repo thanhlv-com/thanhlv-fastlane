@@ -39,7 +39,7 @@
 - [x] Code Generation
 
 #### Unit 2: uow-release-publisher
-- [ ] Functional Design
+- [x] Functional Design
 - [ ] Code Generation
 
 #### Integration
