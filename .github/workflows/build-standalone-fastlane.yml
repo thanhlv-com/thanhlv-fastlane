@@ -41,6 +41,11 @@ on:
         required: false
         default: true
         type: boolean
+      release:
+        description: "Tạo GitHub Release và tải lên các file build thành công"
+        required: false
+        default: false
+        type: boolean
 
 # ==============================================================================
 # KHAI BÁO TẬP TRUNG TẤT CẢ BIẾN MÔI TRƯỜNG & SECRETS TỪ GITHUB Ở ĐẦU FILE
@@ -70,11 +75,123 @@ env:
   INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
   INPUT_SKIP_CERTS: ${{ inputs.skip_certs }}
   INPUT_NOTARIZE: ${{ inputs.notarize }}
+  INPUT_RELEASE: ${{ inputs.release }}
 
 jobs:
+  pre-check:
+    name: Pre-Flight Release Check & Target Resolution
+    if: inputs.release == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      target_repo: ${{ steps.resolve.outputs.target_repo }}
+      target_owner: ${{ steps.resolve.outputs.target_owner }}
+      version: ${{ steps.resolve.outputs.version }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      app_name: ${{ steps.resolve.outputs.app_name }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Resolve App Config & Target Release Repository
+        id: resolve
+        env:
+          INPUT_APP: ${{ inputs.app }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          node -e '
+          const fs = require("fs");
+          const apps = JSON.parse(fs.readFileSync("fastlane/apps.json", "utf8"));
+          const appKey = process.env.INPUT_APP;
+          const app = apps[appKey];
+          if (!app) {
+            console.error(`::error::Không tìm thấy cấu hình cho app "${appKey}" trong fastlane/apps.json`);
+            process.exit(1);
+          }
+
+          const inputVersion = (process.env.INPUT_VERSION || "").trim();
+          const version = inputVersion !== "" ? inputVersion : (app.version || "1.0.0");
+          const releaseTag = `v${version}`;
+
+          // Ưu tiên release_download nếu có, nếu không thì dùng git_url
+          const rawUrl = (app.release_download && app.release_download.trim() !== "")
+            ? app.release_download.trim()
+            : (app.git_url ? app.git_url.trim() : "");
+
+          if (!rawUrl) {
+            console.error(`::error::Không tìm thấy release_download hoặc git_url cho app "${appKey}"`);
+            process.exit(1);
+          }
+
+          const match = rawUrl.match(/github\.com[:/]([^/]+)\/([^/.]+)(?:\.git)?$/);
+          if (!match) {
+            console.error(`::error::Không thể parse URL repo GitHub: ${rawUrl}`);
+            process.exit(1);
+          }
+
+          const owner = match[1];
+          const repo = match[2];
+          const targetRepo = `${owner}/${repo}`;
+          const appName = app.app_name || appKey;
+
+          console.log(`📌 App: ${appName} (${appKey})`);
+          console.log(`📌 Version: ${version} (Tag: ${releaseTag})`);
+          console.log(`📌 Target Repo: ${targetRepo} (Owner: ${owner})`);
+
+          const outputFile = process.env.GITHUB_OUTPUT;
+          fs.appendFileSync(outputFile, `target_repo=${targetRepo}\n`);
+          fs.appendFileSync(outputFile, `target_owner=${owner}\n`);
+          fs.appendFileSync(outputFile, `version=${version}\n`);
+          fs.appendFileSync(outputFile, `release_tag=${releaseTag}\n`);
+          fs.appendFileSync(outputFile, `app_name=${appName}\n`);
+          '
+
+      - name: Generate GitHub App Token for Target Owner
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.GH_APP_ID }}
+          private-key: ${{ env.GH_APP_PRIVATE_KEY }}
+          owner: ${{ steps.resolve.outputs.target_owner }}
+
+      - name: Verify No Duplicate Release Exists (Rule 1)
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          TARGET_REPO: ${{ steps.resolve.outputs.target_repo }}
+          RELEASE_TAG: ${{ steps.resolve.outputs.release_tag }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          echo "🔍 Kiểm tra xem release version $VERSION (tag: $RELEASE_TAG) đã tồn tại trên repo $TARGET_REPO chưa..."
+
+          EXISTS=false
+          if gh release view "$RELEASE_TAG" --repo "$TARGET_REPO" >/dev/null 2>&1; then
+            EXISTS=true
+            EXISTING_TAG="$RELEASE_TAG"
+          elif gh release view "$VERSION" --repo "$TARGET_REPO" >/dev/null 2>&1; then
+            EXISTS=true
+            EXISTING_TAG="$VERSION"
+          fi
+
+          if [ "$EXISTS" = "true" ]; then
+            echo "::error::❌ LỖI: Bản release cho version $VERSION (tag: $EXISTING_TAG) đã tồn tại trên repo $TARGET_REPO! Vui lòng nâng version trước khi tạo release mới."
+            exit 1
+          fi
+
+          echo "✅ Xác thực thành công: Repo target $TARGET_REPO chưa có bản release nào match với version $VERSION."
+
   build-macos:
     name: Build macOS Standalone (${{ inputs.app }})
-    if: inputs.platform == 'all' || inputs.platform == 'macos'
+    needs: [pre-check]
+    if: |
+      always() &&
+      (needs.pre-check.result == 'success' || needs.pre-check.result == 'skipped') &&
+      (inputs.platform == 'all' || inputs.platform == 'macos')
     runs-on: macos-latest
     timeout-minutes: 60
 
@@ -193,7 +310,11 @@ jobs:
 
   build-windows:
     name: Build Windows Standalone (${{ inputs.app }})
-    if: inputs.platform == 'all' || inputs.platform == 'windows'
+    needs: [pre-check]
+    if: |
+      always() &&
+      (needs.pre-check.result == 'success' || needs.pre-check.result == 'skipped') &&
+      (inputs.platform == 'all' || inputs.platform == 'windows')
     runs-on: windows-latest
     timeout-minutes: 60
 
@@ -289,7 +410,11 @@ jobs:
 
   build-linux:
     name: Build Linux Standalone (${{ inputs.app }})
-    if: inputs.platform == 'all' || inputs.platform == 'linux'
+    needs: [pre-check]
+    if: |
+      always() &&
+      (needs.pre-check.result == 'success' || needs.pre-check.result == 'skipped') &&
+      (inputs.platform == 'all' || inputs.platform == 'linux')
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -375,6 +500,112 @@ jobs:
           • Status: ${ICON}
           • Triggered by: ${{ github.actor }}
           • URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d message_thread_id="${MESSAGE_THREAD_ID}" \
+            --data-urlencode text="${MESSAGE}"
+
+  publish-release:
+    name: Publish Standalone GitHub Release
+    needs: [pre-check, build-macos, build-windows, build-linux]
+    if: |
+      always() &&
+      inputs.release == true &&
+      (needs.pre-check.result == 'success') &&
+      (inputs.platform != 'all' || (needs.build-macos.result == 'success' && needs.build-windows.result == 'success' && needs.build-linux.result == 'success')) &&
+      (inputs.platform != 'macos' || needs.build-macos.result == 'success') &&
+      (inputs.platform != 'windows' || needs.build-windows.result == 'success') &&
+      (inputs.platform != 'linux' || needs.build-linux.result == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 1. Tạo GitHub App Token cho Owner của repo target (hỗ trợ cross-org release)
+      - name: Generate GitHub App Token for Release Target
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.GH_APP_ID }}
+          private-key: ${{ env.GH_APP_PRIVATE_KEY }}
+          owner: ${{ needs.pre-check.outputs.target_owner }}
+
+      # 2. Tải về toàn bộ artifacts từ các build jobs
+      - name: Download Standalone Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: downloaded_artifacts
+
+      # 3. Thu gom toàn bộ file cài đặt (.dmg, .exe, .AppImage) vào thư mục release_assets
+      - name: Aggregate Release Assets
+        id: assets
+        run: |
+          mkdir -p release_assets
+          find ./downloaded_artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" \) -exec cp -f {} release_assets/ \;
+          echo "📦 Danh sách file đính kèm bản release:"
+          ls -lh release_assets/
+          ASSET_COUNT=$(ls -1 release_assets/ 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$ASSET_COUNT" -eq 0 ]; then
+            echo "::error::❌ Không tìm thấy bất kỳ file binary nào (.dmg, .exe, .AppImage) để tạo release!"
+            exit 1
+          fi
+          echo "count=$ASSET_COUNT" >> $GITHUB_OUTPUT
+
+      # 4. Tạo bản Release và upload files lên repo target bằng GitHub CLI (gh)
+      - name: Publish GitHub Release
+        id: gh_release
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          TARGET_REPO: ${{ needs.pre-check.outputs.target_repo }}
+          RELEASE_TAG: ${{ needs.pre-check.outputs.release_tag }}
+          VERSION: ${{ needs.pre-check.outputs.version }}
+          APP_NAME: ${{ needs.pre-check.outputs.app_name }}
+        run: |
+          TITLE="$APP_NAME v$VERSION"
+
+          # Tạo nội dung changelog và danh sách file
+          NOTES="## 🚀 $APP_NAME v$VERSION
+
+          ### 📦 File phát hành Standalone Desktop:
+          $(ls -1 release_assets/ | sed 's/^/- /')
+
+          ---
+          - **App Key**: \`${{ inputs.app }}\`
+          - **Version**: \`$VERSION\`
+          - **Release Tag**: \`$RELEASE_TAG\`
+          - **Nền tảng build**: \`${{ inputs.platform }}\`
+          - **Commit**: \`${{ github.sha }}\`
+          - **Workflow Run**: [Xem trên GitHub Actions](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+          echo "🚀 Đang tạo release trên $TARGET_REPO với tag $RELEASE_TAG..."
+          gh release create "$RELEASE_TAG" ./release_assets/* \
+            --repo "$TARGET_REPO" \
+            --title "$TITLE" \
+            --notes "$NOTES"
+
+          RELEASE_URL="https://github.com/$TARGET_REPO/releases/tag/$RELEASE_TAG"
+          echo "release_url=$RELEASE_URL" >> $GITHUB_OUTPUT
+          echo "🎉 Bản release đã được tạo thành công: $RELEASE_URL"
+
+      # 5. Gửi thông báo Telegram thông báo hoàn tất release
+      - name: Send Telegram Release Notification
+        if: always() && steps.gh_release.outcome == 'success'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          MESSAGE_THREAD_ID: ${{ vars.MESSAGE_THREAD_ID }}
+        run: |
+          RELEASE_URL="${{ steps.gh_release.outputs.release_url }}"
+          MESSAGE="🎉 [Standalone GitHub Release Published]
+          • App: ${{ needs.pre-check.outputs.app_name }} (${{ inputs.app }})
+          • Version: v${{ needs.pre-check.outputs.version }}
+          • Target Repo: ${{ needs.pre-check.outputs.target_repo }}
+          • Platform: ${{ inputs.platform }}
+          • Assets: ${{ steps.assets.outputs.count }} file (.dmg, .exe, .AppImage)
+          • Release URL: ${RELEASE_URL}
+          • Triggered by: ${{ github.actor }}"
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d message_thread_id="${MESSAGE_THREAD_ID}" \
