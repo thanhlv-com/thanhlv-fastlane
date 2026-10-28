@@ -588,7 +588,6 @@ jobs:
           - **Release Tag**: \`$RELEASE_TAG\`
           - **Nền tảng build**: \`${{ inputs.platform }}\`
           - **Commit**: \`${{ github.sha }}\`
-          - **Workflow Run**: [Xem trên GitHub Actions](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
 
           echo "🚀 Đang tạo release trên $TARGET_REPO với tag $RELEASE_TAG..."
           gh release create "$RELEASE_TAG" ./release_assets/* \
