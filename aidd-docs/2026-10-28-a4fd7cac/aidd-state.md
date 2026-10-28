@@ -40,7 +40,7 @@
 
 #### Unit 2: uow-release-publisher
 - [x] Functional Design
-- [ ] Code Generation
+- [x] Code Generation
 
 #### Integration
 - [ ] Build and Test
