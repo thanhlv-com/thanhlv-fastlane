@@ -27,7 +27,7 @@
 - [x] Reverse Engineering
 - [x] Requirements Analysis
 - [x] User Stories
-- [ ] Workflow Planning
+- [x] Workflow Planning
 - [ ] Application Design
 - [ ] Units Generation
 - [ ] Detailed Design Baseline
