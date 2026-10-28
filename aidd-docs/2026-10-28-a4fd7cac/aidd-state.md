@@ -29,5 +29,5 @@
 - [x] User Stories
 - [x] Workflow Planning
 - [x] Application Design
-- [ ] Units Generation
+- [x] Units Generation
 - [ ] Detailed Design Baseline
