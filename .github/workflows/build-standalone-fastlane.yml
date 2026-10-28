@@ -146,31 +146,26 @@ jobs:
           echo "🚀 Đang thực thi: fastlane standalone mac_build app:$INPUT_APP $EXTRA_ARGS"
           bundle exec fastlane standalone mac_build app:$INPUT_APP $EXTRA_ARGS
 
-      # 5.1 Thu thập sản phẩm đóng gói ra thư mục build_output để upload không bị bỏ sót bởi thư mục ẩn .workspace_code
-      - name: Collect macOS Artifacts
+      # 5.1 Thu thập file .dmg ra thư mục build_output để upload
+      - name: Collect macOS Artifacts (.dmg)
         if: always()
         run: |
-          mkdir -p build_output
+          rm -rf build_output && mkdir -p build_output
           shopt -s nullglob 2>/dev/null || true
-          cp -f .workspace_code/*/dist/*.dmg .workspace_code/*/dist/*.zip .workspace_code/*/dist/*.blockmap build_output/ 2>/dev/null || true
+          cp -f .workspace_code/*/dist/*.dmg build_output/ 2>/dev/null || true
           if [ -d .workspace_code ]; then
-            find .workspace_code -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \; 2>/dev/null || true
+            find .workspace_code -type f -name "*.dmg" -exec cp -f {} build_output/ \; 2>/dev/null || true
           fi
           echo "📦 Danh sách file trong build_output:"
           ls -la build_output/
 
-      # 6. Upload DMG & ZIP Artifacts
-      - name: Upload macOS Standalone Artifacts
+      # 6. Upload DMG Artifact
+      - name: Upload macOS Standalone Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: standalone-macos-${{ inputs.app }}-artifacts
-          path: |
-            build_output/*
-            .workspace_code/*/dist/*.dmg
-            .workspace_code/*/dist/*.zip
-            .workspace_code/*/dist/*.blockmap
-          include-hidden-files: true
+          path: build_output/*.dmg
           if-no-files-found: warn
           retention-days: 14
 
@@ -247,30 +242,26 @@ jobs:
           echo "🚀 Đang thực thi: fastlane standalone win_build app:$INPUT_APP $EXTRA_ARGS"
           bundle exec fastlane standalone win_build app:$INPUT_APP $EXTRA_ARGS
 
-      # 5.1 Thu thập sản phẩm đóng gói ra thư mục build_output để upload
-      - name: Collect Windows Artifacts
+      # 5.1 Thu thập file .exe ra thư mục build_output để upload
+      - name: Collect Windows Artifacts (.exe)
         if: always()
         shell: bash
         run: |
-          mkdir -p build_output
+          rm -rf build_output && mkdir -p build_output
           shopt -s nullglob 2>/dev/null || true
-          cp -f .workspace_code/*/dist/*.exe .workspace_code/*/dist/*.blockmap build_output/ 2>/dev/null || true
+          cp -f .workspace_code/*/dist/*.exe build_output/ 2>/dev/null || true
           if [ -d .workspace_code ]; then
-            find .workspace_code -type f \( -name "*.exe" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \; 2>/dev/null || true
+            find .workspace_code -type f -name "*.exe" -exec cp -f {} build_output/ \; 2>/dev/null || true
           fi
           echo "📦 Danh sách file trong build_output:"
           ls -la build_output/
 
-      - name: Upload Windows Standalone Artifacts
+      - name: Upload Windows Standalone Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: standalone-windows-${{ inputs.app }}-artifacts
-          path: |
-            build_output/*
-            .workspace_code/*/dist/*.exe
-            .workspace_code/*/dist/*.blockmap
-          include-hidden-files: true
+          path: build_output/*.exe
           if-no-files-found: warn
           retention-days: 14
 
@@ -345,30 +336,26 @@ jobs:
           echo "🚀 Đang thực thi: fastlane standalone linux_build app:$INPUT_APP $EXTRA_ARGS"
           bundle exec fastlane standalone linux_build app:$INPUT_APP $EXTRA_ARGS
 
-      # 5.1 Thu thập sản phẩm đóng gói ra thư mục build_output để upload
-      - name: Collect Linux Artifacts
+      # 5.1 Thu thập file .AppImage ra thư mục build_output để upload
+      - name: Collect Linux Artifacts (.AppImage)
         if: always()
         run: |
-          mkdir -p build_output
+          rm -rf build_output && mkdir -p build_output
           shopt -s nullglob 2>/dev/null || true
-          cp -f .workspace_code/*/dist/*.AppImage .workspace_code/*/dist/*.deb .workspace_code/*/dist/*.snap .workspace_code/*/dist/*.blockmap build_output/ 2>/dev/null || true
+          cp -f .workspace_code/*/dist/*.AppImage build_output/ 2>/dev/null || true
           if [ -d .workspace_code ]; then
-            find .workspace_code -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" -o -name "*.blockmap" \) -exec cp -f {} build_output/ \; 2>/dev/null || true
+            find .workspace_code -type f -name "*.AppImage" -exec cp -f {} build_output/ \; 2>/dev/null || true
           fi
           echo "📦 Danh sách file trong build_output:"
           ls -la build_output/
 
-      - name: Upload Linux Standalone Artifacts
+      # 6. Upload AppImage Artifact
+      - name: Upload Linux Standalone Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: standalone-linux-${{ inputs.app }}-artifacts
-          path: |
-            build_output/*
-            .workspace_code/*/dist/*.AppImage
-            .workspace_code/*/dist/*.deb
-            .workspace_code/*/dist/*.snap
-          include-hidden-files: true
+          path: build_output/*.AppImage
           if-no-files-found: warn
           retention-days: 14
 
