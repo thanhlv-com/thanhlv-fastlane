@@ -42,7 +42,7 @@ on:
         default: true
         type: boolean
       release:
-        description: "Tạo GitHub Release và tải lên các file build thành công"
+        description: "Create GitHub Release and upload built standalone packages"
         required: false
         default: false
         type: boolean
@@ -576,20 +576,21 @@ jobs:
         run: |
           TITLE="$APP_NAME v$VERSION"
 
-          # Tạo nội dung changelog và danh sách file
+          # Generate release notes in English
           NOTES="## 🚀 $APP_NAME v$VERSION
 
-          ### 📦 File phát hành Standalone Desktop:
+          ### 📦 Standalone Desktop Packages:
           $(ls -1 release_assets/ | sed 's/^/- /')
 
           ---
-          - **App Key**: \`${{ inputs.app }}\`
+          - **Application**: \`$APP_NAME\` (\`${{ inputs.app }}\`)
           - **Version**: \`$VERSION\`
           - **Release Tag**: \`$RELEASE_TAG\`
-          - **Nền tảng build**: \`${{ inputs.platform }}\`
+          - **Build Platform**: \`${{ inputs.platform }}\`
           - **Commit**: \`${{ github.sha }}\`
+          - **Workflow Run**: [View on GitHub Actions](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
 
-          echo "🚀 Đang tạo release trên $TARGET_REPO với tag $RELEASE_TAG..."
+          echo "🚀 Creating GitHub Release on $TARGET_REPO with tag $RELEASE_TAG..."
           gh release create "$RELEASE_TAG" ./release_assets/* \
             --repo "$TARGET_REPO" \
             --title "$TITLE" \
@@ -597,7 +598,7 @@ jobs:
 
           RELEASE_URL="https://github.com/$TARGET_REPO/releases/tag/$RELEASE_TAG"
           echo "release_url=$RELEASE_URL" >> $GITHUB_OUTPUT
-          echo "🎉 Bản release đã được tạo thành công: $RELEASE_URL"
+          echo "🎉 Release published successfully: $RELEASE_URL"
 
       # 5. Gửi thông báo Telegram thông báo hoàn tất release
       - name: Send Telegram Release Notification
@@ -613,7 +614,7 @@ jobs:
           • Version: v${{ needs.pre-check.outputs.version }}
           • Target Repo: ${{ needs.pre-check.outputs.target_repo }}
           • Platform: ${{ inputs.platform }}
-          • Assets: ${{ steps.assets.outputs.count }} file (.dmg, .exe, .AppImage)
+          • Assets: ${{ steps.assets.outputs.count }} files (.dmg, .exe, .AppImage)
           • Release URL: ${RELEASE_URL}
           • Triggered by: ${{ github.actor }}"
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
