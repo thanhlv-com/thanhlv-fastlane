@@ -25,7 +25,7 @@
 ### 🔵 INCEPTION PHASE
 - [x] Workspace Detection
 - [x] Reverse Engineering
-- [ ] Requirements Analysis
+- [x] Requirements Analysis
 - [ ] User Stories
 - [ ] Workflow Planning
 - [ ] Application Design
