@@ -1,6 +1,7 @@
 # fastlane/helpers/git_workspace_helper.rb
 # Helper quản lý tải và cập nhật mã nguồn ứng dụng vào thư mục .workspace_code
 
+require 'json'
 require 'fileutils'
 require 'open3'
 begin
@@ -191,6 +192,28 @@ def is_electron_app?(app_info = nil, workspace_dir = nil)
   end
 
   false
+end
+
+# Tự động cập nhật version vào package.json của ứng dụng Electron
+def configure_electron_version!(workspace_dir, version_name, build_number = nil)
+  return false if version_name.nil? || version_name.to_s.strip.empty?
+  package_json_path = File.join(workspace_dir, "package.json")
+  return false unless File.exist?(package_json_path)
+
+  begin
+    pkg_data = JSON.parse(File.read(package_json_path))
+    old_version = pkg_data["version"]
+    pkg_data["version"] = version_name.to_s.strip
+    if build_number && !build_number.to_s.strip.empty?
+      pkg_data["buildNumber"] = build_number.to_s.strip
+    end
+    File.write(package_json_path, JSON.pretty_generate(pkg_data) + "\n")
+    UI.success("📝 Đã cập nhật version vào package.json: #{old_version || '(chưa có)'} -> #{version_name}")
+    true
+  rescue => e
+    UI.error("⚠️ Không thể cập nhật version vào package.json: #{e.message}")
+    false
+  end
 end
 
 # Thực thi lệnh Node.js / NPM trong thư mục workspace với môi trường sạch
