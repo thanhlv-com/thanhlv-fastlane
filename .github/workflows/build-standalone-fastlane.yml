@@ -41,6 +41,11 @@ on:
         required: false
         default: true
         type: boolean
+      release:
+        description: "Tạo GitHub Release và tải lên các file build thành công"
+        required: false
+        default: false
+        type: boolean
 
 # ==============================================================================
 # KHAI BÁO TẬP TRUNG TẤT CẢ BIẾN MÔI TRƯỜNG & SECRETS TỪ GITHUB Ở ĐẦU FILE
@@ -70,8 +75,115 @@ env:
   INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
   INPUT_SKIP_CERTS: ${{ inputs.skip_certs }}
   INPUT_NOTARIZE: ${{ inputs.notarize }}
+  INPUT_RELEASE: ${{ inputs.release }}
 
 jobs:
+  pre-check:
+    name: Pre-Flight Release Check & Target Resolution
+    if: inputs.release == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      target_repo: ${{ steps.resolve.outputs.target_repo }}
+      target_owner: ${{ steps.resolve.outputs.target_owner }}
+      version: ${{ steps.resolve.outputs.version }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      app_name: ${{ steps.resolve.outputs.app_name }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Resolve App Config & Target Release Repository
+        id: resolve
+        env:
+          INPUT_APP: ${{ inputs.app }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          node -e '
+          const fs = require("fs");
+          const apps = JSON.parse(fs.readFileSync("fastlane/apps.json", "utf8"));
+          const appKey = process.env.INPUT_APP;
+          const app = apps[appKey];
+          if (!app) {
+            console.error(`::error::Không tìm thấy cấu hình cho app "${appKey}" trong fastlane/apps.json`);
+            process.exit(1);
+          }
+
+          const inputVersion = (process.env.INPUT_VERSION || "").trim();
+          const version = inputVersion !== "" ? inputVersion : (app.version || "1.0.0");
+          const releaseTag = `v${version}`;
+
+          // Ưu tiên release_download nếu có, nếu không thì dùng git_url
+          const rawUrl = (app.release_download && app.release_download.trim() !== "")
+            ? app.release_download.trim()
+            : (app.git_url ? app.git_url.trim() : "");
+
+          if (!rawUrl) {
+            console.error(`::error::Không tìm thấy release_download hoặc git_url cho app "${appKey}"`);
+            process.exit(1);
+          }
+
+          const match = rawUrl.match(/github\.com[:/]([^/]+)\/([^/.]+)(?:\.git)?$/);
+          if (!match) {
+            console.error(`::error::Không thể parse URL repo GitHub: ${rawUrl}`);
+            process.exit(1);
+          }
+
+          const owner = match[1];
+          const repo = match[2];
+          const targetRepo = `${owner}/${repo}`;
+          const appName = app.app_name || appKey;
+
+          console.log(`📌 App: ${appName} (${appKey})`);
+          console.log(`📌 Version: ${version} (Tag: ${releaseTag})`);
+          console.log(`📌 Target Repo: ${targetRepo} (Owner: ${owner})`);
+
+          const outputFile = process.env.GITHUB_OUTPUT;
+          fs.appendFileSync(outputFile, `target_repo=${targetRepo}\n`);
+          fs.appendFileSync(outputFile, `target_owner=${owner}\n`);
+          fs.appendFileSync(outputFile, `version=${version}\n`);
+          fs.appendFileSync(outputFile, `release_tag=${releaseTag}\n`);
+          fs.appendFileSync(outputFile, `app_name=${appName}\n`);
+          '
+
+      - name: Generate GitHub App Token for Target Owner
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.GH_APP_ID }}
+          private-key: ${{ env.GH_APP_PRIVATE_KEY }}
+          owner: ${{ steps.resolve.outputs.target_owner }}
+
+      - name: Verify No Duplicate Release Exists (Rule 1)
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          TARGET_REPO: ${{ steps.resolve.outputs.target_repo }}
+          RELEASE_TAG: ${{ steps.resolve.outputs.release_tag }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          echo "🔍 Kiểm tra xem release version $VERSION (tag: $RELEASE_TAG) đã tồn tại trên repo $TARGET_REPO chưa..."
+
+          EXISTS=false
+          if gh release view "$RELEASE_TAG" --repo "$TARGET_REPO" >/dev/null 2>&1; then
+            EXISTS=true
+            EXISTING_TAG="$RELEASE_TAG"
+          elif gh release view "$VERSION" --repo "$TARGET_REPO" >/dev/null 2>&1; then
+            EXISTS=true
+            EXISTING_TAG="$VERSION"
+          fi
+
+          if [ "$EXISTS" = "true" ]; then
+            echo "::error::❌ LỖI: Bản release cho version $VERSION (tag: $EXISTING_TAG) đã tồn tại trên repo $TARGET_REPO! Vui lòng nâng version trước khi tạo release mới."
+            exit 1
+          fi
+
+          echo "✅ Xác thực thành công: Repo target $TARGET_REPO chưa có bản release nào match với version $VERSION."
   build-macos:
     name: Build macOS Standalone (${{ inputs.app }})
     if: inputs.platform == 'all' || inputs.platform == 'macos'

@@ -36,7 +36,7 @@
 ### 🟢 CONSTRUCTION PHASE
 #### Unit 1: uow-preflight-resolver
 - [x] Functional Design
-- [ ] Code Generation
+- [x] Code Generation
 
 #### Unit 2: uow-release-publisher
 - [ ] Functional Design
