@@ -121,8 +121,8 @@ def notarize_macos_artifact(artifact_path, options = {})
   end
 end
 
-# Tự động tối ưu cấu hình electron-builder.yml để đạt tiêu chuẩn Apple Notarization
-def configure_electron_macos_signing!(workspace_dir)
+# Tự động tối ưu cấu hình electron-builder.yml (Signing & Artifact Naming với ${arch})
+def configure_electron_builder_config!(workspace_dir, platform = "macos")
   builder_yml = File.join(workspace_dir, "electron-builder.yml")
   builder_yaml = File.join(workspace_dir, "electron-builder.yaml")
   target_file = File.exist?(builder_yml) ? builder_yml : (File.exist?(builder_yaml) ? builder_yaml : nil)
@@ -132,21 +132,35 @@ def configure_electron_macos_signing!(workspace_dir)
   require 'yaml'
   begin
     config = YAML.load_file(target_file) || {}
-    config["mac"] ||= {}
-    config["mac"]["hardenedRuntime"] = true
-    config["mac"]["gatekeeperAssess"] = false
 
-    entitlements_path = File.join(workspace_dir, "build", "entitlements.mac.plist")
-    if File.exist?(entitlements_path)
-      config["mac"]["entitlements"] ||= "build/entitlements.mac.plist"
-      config["mac"]["entitlementsInherit"] ||= "build/entitlements.mac.plist"
+    # Đảm bảo artifactName luôn chứa ${arch} để phân biệt rõ x64, arm64, ia32
+    # và tránh bị shell mở rộng thành chuỗi rỗng khi truyền qua command-line
+    config["dmg"] ||= {}
+    config["dmg"]["artifactName"] = "${name}-${version}-${arch}.${ext}"
+    config["nsis"] ||= {}
+    config["nsis"]["artifactName"] = "${name}-${version}-${arch}-setup.${ext}"
+
+    if platform == "macos"
+      config["mac"] ||= {}
+      config["mac"]["hardenedRuntime"] = true
+      config["mac"]["gatekeeperAssess"] = false
+
+      entitlements_path = File.join(workspace_dir, "build", "entitlements.mac.plist")
+      if File.exist?(entitlements_path)
+        config["mac"]["entitlements"] ||= "build/entitlements.mac.plist"
+        config["mac"]["entitlementsInherit"] ||= "build/entitlements.mac.plist"
+      end
     end
 
     File.write(target_file, YAML.dump(config))
-    UI.success("🛠 Đã cấu hình electron-builder (hardenedRuntime=true, gatekeeperAssess=false, entitlements) chuẩn Notarization!")
+    UI.success("🛠 Đã cấu hình electron-builder (artifactName chứa ${arch}, hardenedRuntime, entitlements) chuẩn!")
   rescue => e
     UI.important("⚠️ Không thể cập nhật cấu hình electron-builder: #{e.message}")
   end
+end
+
+def configure_electron_macos_signing!(workspace_dir)
+  configure_electron_builder_config!(workspace_dir, "macos")
 end
 
 # Tự động tải và nạp các Apple Intermediate CA & Root CA Certificates vào Keychain
@@ -604,8 +618,7 @@ platform :standalone do
                  else ""
                  end
 
-      artifact_arg = " -c.dmg.artifactName=\"${name}-${version}-${arch}.${ext}\""
-      full_flags = "#{version_arg}#{arch_arg}#{artifact_arg}"
+      full_flags = "#{version_arg}#{arch_arg}"
 
       build_cmd = if scripts["build:mac"]
                     "#{pkg_mgr} run build:mac --#{full_flags}"
@@ -685,6 +698,9 @@ platform :standalone do
       # Tự động đồng bộ version vào package.json của ứng dụng
       configure_electron_version!(workspace_dir, version_name, build_number)
 
+      # Tự động tối ưu cấu hình electron-builder (artifactName chứa ${arch})
+      configure_electron_builder_config!(workspace_dir, "windows")
+
       node_modules = File.join(workspace_dir, "node_modules")
       unless File.directory?(node_modules)
         UI.message("📦 Cài đặt dependencies: #{pkg_mgr} install...")
@@ -706,8 +722,7 @@ platform :standalone do
                  else ""
                  end
 
-      artifact_arg = " -c.nsis.artifactName=\"${name}-${version}-${arch}-setup.${ext}\""
-      full_flags = "#{version_arg}#{arch_arg}#{artifact_arg}"
+      full_flags = "#{version_arg}#{arch_arg}"
 
       build_cmd = if scripts["build:win"]
                     "#{pkg_mgr} run build:win --#{full_flags}"
@@ -765,6 +780,9 @@ platform :standalone do
 
       # Tự động đồng bộ version vào package.json của ứng dụng
       configure_electron_version!(workspace_dir, version_name, build_number)
+
+      # Tự động tối ưu cấu hình electron-builder (artifactName chứa ${arch})
+      configure_electron_builder_config!(workspace_dir, "linux")
 
       node_modules = File.join(workspace_dir, "node_modules")
       unless File.directory?(node_modules)
