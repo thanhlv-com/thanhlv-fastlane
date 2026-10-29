@@ -235,7 +235,7 @@
     ],
     "bundle_id": "com.thanhlv.webclone",
     "package_name": "com.thanhlv.webclone",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "obfuscate": false,
     "description": "Multi-Session Browser with isolated sessions and separate logins."
   }
