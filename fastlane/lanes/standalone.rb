@@ -595,12 +595,24 @@ platform :standalone do
 
       version_arg = (version_name && !version_name.empty?) ? " -c.extraMetadata.version=#{version_name}" : ""
 
+      arch_raw = (options[:arch] || "").to_s.strip.downcase
+      arch_arg = case arch_raw
+                 when "x64", "intel" then " --x64"
+                 when "arm64", "mac", "apple_silicon" then " --arm64"
+                 when "universal" then " --universal"
+                 when "all" then " --x64 --arm64"
+                 else ""
+                 end
+
+      artifact_arg = " -c.dmg.artifactName=\"${name}-${version}-${arch}.${ext}\""
+      full_flags = "#{version_arg}#{arch_arg}#{artifact_arg}"
+
       build_cmd = if scripts["build:mac"]
-                    "#{pkg_mgr} run build:mac --#{version_arg}"
+                    "#{pkg_mgr} run build:mac --#{full_flags}"
                   elsif scripts["build"]
-                    "#{pkg_mgr} run build && npx electron-builder --mac#{version_arg}"
+                    "#{pkg_mgr} run build && npx electron-builder --mac#{full_flags}"
                   else
-                    "npx electron-builder --mac#{version_arg}"
+                    "npx electron-builder --mac#{full_flags}"
                   end
 
       # Log kiểm tra ngay trước khi build electron
@@ -618,13 +630,14 @@ platform :standalone do
 
       UI.success("🎉 Đóng gói Electron macOS Standalone (.dmg) thành công!")
       UI.success("📦 Thư mục output: #{dist_dir}")
-      UI.success("📦 File sản phẩm DMG: #{artifact_path}") if artifact_path
+      UI.success("📦 Danh sách file DMG: #{dmg_files.join(', ')}") if dmg_files.any?
 
       # 3. Tự động Apple Notarization và Staple cho macOS Standalone
       should_notarize = options[:notarize] != false && options[:notarize] != "false"
       if should_notarize && (is_ci || ENV["ASC_KEY_CONTENT"] || ENV["ASC_KEY_PATH"]) && dmg_files.any?
-        dmg_to_notarize = dmg_files.first
-        notarize_macos_artifact(dmg_to_notarize, options)
+        dmg_files.each do |dmg_to_notarize|
+          notarize_macos_artifact(dmg_to_notarize, options)
+        end
       end
 
       next artifact_path || dist_dir
@@ -634,6 +647,13 @@ platform :standalone do
       build_args << "--build-name=#{version_name}" if version_name && !version_name.empty?
       build_args << "--build-number=#{build_number}" if build_number && !build_number.empty?
       build_args.concat(build_flutter_obfuscate_args(workspace_dir, "macos", app_info, options))
+
+      arch_raw = (options[:arch] || "").to_s.strip.downcase
+      if arch_raw == "x64" || arch_raw == "intel"
+        build_args << "--target-platform darwin-x64"
+      elsif arch_raw == "arm64" || arch_raw == "mac" || arch_raw == "apple_silicon"
+        build_args << "--target-platform darwin-arm64"
+      end
 
       flutter_cmd = "flutter build macos --release #{build_args.join(' ')}"
       UI.message("🛠 Đang compile Flutter macOS Standalone: #{flutter_cmd}")
@@ -677,12 +697,24 @@ platform :standalone do
 
       version_arg = (version_name && !version_name.empty?) ? " -c.extraMetadata.version=#{version_name}" : ""
 
+      arch_raw = (options[:arch] || "").to_s.strip.downcase
+      arch_arg = case arch_raw
+                 when "x86", "ia32", "32" then " --ia32"
+                 when "x64", "64" then " --x64"
+                 when "arm64" then " --arm64"
+                 when "all" then " --x64 --ia32"
+                 else ""
+                 end
+
+      artifact_arg = " -c.nsis.artifactName=\"${name}-${version}-${arch}-setup.${ext}\""
+      full_flags = "#{version_arg}#{arch_arg}#{artifact_arg}"
+
       build_cmd = if scripts["build:win"]
-                    "#{pkg_mgr} run build:win --#{version_arg}"
+                    "#{pkg_mgr} run build:win --#{full_flags}"
                   elsif scripts["build"]
-                    "#{pkg_mgr} run build && npx electron-builder --win#{version_arg}"
+                    "#{pkg_mgr} run build && npx electron-builder --win#{full_flags}"
                   else
-                    "npx electron-builder --win#{version_arg}"
+                    "npx electron-builder --win#{full_flags}"
                   end
 
       UI.message("🛠 Đang đóng gói Electron Windows Standalone: #{build_cmd}")
@@ -694,7 +726,7 @@ platform :standalone do
 
       UI.success("🎉 Đóng gói Electron Windows Standalone (.exe) thành công!")
       UI.success("📦 Thư mục output: #{dist_dir}")
-      UI.success("📦 File sản phẩm EXE: #{artifact_path}") if artifact_path
+      UI.success("📦 Danh sách file EXE: #{exe_files.join(', ')}") if exe_files.any?
 
       next artifact_path || dist_dir
     else
