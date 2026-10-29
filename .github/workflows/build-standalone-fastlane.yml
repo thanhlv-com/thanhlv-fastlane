@@ -1,5 +1,5 @@
 name: Build Standalone Desktop Apps (DMG, EXE, AppImage)
-run-name: "Standalone: ${{ inputs.app }} (${{ inputs.platform }}${{ inputs.arch != '' && inputs.arch != 'all' && format(' - {0}', inputs.arch) || '' }})${{ inputs.version != '' && format(' (v{0})', inputs.version) || '' }}"
+run-name: "Standalone: ${{ inputs.app }} (${{ inputs.platform }})${{ inputs.version != '' && format(' (v{0})', inputs.version) || '' }}"
 
 on:
   workflow_dispatch:
@@ -21,16 +21,6 @@ on:
           - "macos"
           - "windows"
           - "linux"
-      arch:
-        description: "Kiến trúc CPU để build ('all' = cả x86 & x64 trên Windows, cả Intel & Apple Silicon trên macOS)"
-        required: false
-        default: "all"
-        type: choice
-        options:
-          - "all"
-          - "x64"
-          - "x86"
-          - "arm64"
       version:
         description: "Version (Tùy chọn, để trống sẽ lấy từ apps.json / package.json)"
         required: false
@@ -81,7 +71,6 @@ env:
   # Workflow Inputs
   INPUT_APP: ${{ inputs.app }}
   INPUT_PLATFORM: ${{ inputs.platform }}
-  INPUT_ARCH: ${{ inputs.arch }}
   INPUT_VERSION: ${{ inputs.version }}
   INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
   INPUT_SKIP_CERTS: ${{ inputs.skip_certs }}
@@ -202,8 +191,7 @@ jobs:
     if: |
       always() &&
       (needs.pre-check.result == 'success' || needs.pre-check.result == 'skipped') &&
-      (inputs.platform == 'all' || inputs.platform == 'macos') &&
-      (inputs.arch == '' || inputs.arch == 'all' || inputs.arch == matrix.arch_id)
+      (inputs.platform == 'all' || inputs.platform == 'macos')
     runs-on: macos-latest
     timeout-minutes: 60
     strategy:
@@ -350,8 +338,7 @@ jobs:
     if: |
       always() &&
       (needs.pre-check.result == 'success' || needs.pre-check.result == 'skipped') &&
-      (inputs.platform == 'all' || inputs.platform == 'windows') &&
-      (inputs.arch == '' || inputs.arch == 'all' || inputs.arch == matrix.arch_id)
+      (inputs.platform == 'all' || inputs.platform == 'windows')
     runs-on: windows-latest
     timeout-minutes: 60
     strategy:
@@ -480,8 +467,7 @@ jobs:
     if: |
       always() &&
       (needs.pre-check.result == 'success' || needs.pre-check.result == 'skipped') &&
-      (inputs.platform == 'all' || inputs.platform == 'linux') &&
-      (inputs.arch == '' || inputs.arch == 'all' || inputs.arch == 'x64')
+      (inputs.platform == 'all' || inputs.platform == 'linux')
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -653,7 +639,7 @@ jobs:
           - **Application**: \`$APP_NAME\` (\`${{ inputs.app }}\`)
           - **Version**: \`$VERSION\`
           - **Release Tag**: \`$RELEASE_TAG\`
-          - **Build Platform**: \`${{ inputs.platform }}\` (\`${{ inputs.arch || 'all' }}\`)
+          - **Build Platform**: \`${{ inputs.platform }}\`
           - **Commit**: \`${{ github.sha }}\`"
 
           echo "🚀 Creating GitHub Release on $TARGET_REPO with tag $RELEASE_TAG..."
@@ -679,7 +665,7 @@ jobs:
           • App: ${{ needs.pre-check.outputs.app_name }} (${{ inputs.app }})
           • Version: v${{ needs.pre-check.outputs.version }}
           • Target Repo: ${{ needs.pre-check.outputs.target_repo }}
-          • Platform: ${{ inputs.platform }} (${{ inputs.arch || 'all' }})
+          • Platform: ${{ inputs.platform }}
           • Assets: ${{ steps.assets.outputs.count }} files (.dmg, .exe, .AppImage)
           • Release URL: ${RELEASE_URL}
           • Triggered by: ${{ github.actor }}"
